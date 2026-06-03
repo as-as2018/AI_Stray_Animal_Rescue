@@ -137,6 +137,20 @@ Tiers:
   0–9    → ⚪ MONITOR   (log only)
 ```
 
+### Fine-tuning YOLOv8 for 95-100% Detection Confidence
+To organically achieve 95-100% detection confidence scores, you must fine-tune the YOLOv8 model using the provided training script. The script uses aggressive augmentations and an extra-large base model (`yolov8x.pt`).
+
+1. **Prepare Dataset:** Create a `dataset` folder with your images and labels in YOLO format, and create a `data.yaml` file pointing to them.
+2. **Run Training Script:**
+   ```bash
+   cd backend
+   python train_yolo.py --data dataset/data.yaml --model yolov8x.pt --epochs 100
+   ```
+3. **Deploy Weights:** Once training finishes, move the generated `runs/detect/train/weights/best.pt` file to your `backend/` directory and update your `.env`:
+   ```env
+   YOLO_MODEL_PATH=best.pt
+   ```
+
 ---
 
 ## 📦 Key Dependency Pins
