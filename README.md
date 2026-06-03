@@ -8,7 +8,7 @@ An AI-powered, web-based stray animal rescue and triage system — college final
 
 - 📸 **Photo upload** with drag-and-drop interface
 - 📍 **GPS capture** from browser Geolocation API
-- 🤖 **AI triage** — YOLOv8m (species) + EfficientNetV2-S (injury severity)
+- 🤖 **AI triage** — YOLO11m (species) + Custom YOLOv8 (injury) + Area-Ratio Severity Algorithm
 - 🔢 **Urgency Score (0–100)** with 5 priority tiers
 - 📧 **Email alert** to nearest NGO via SendGrid *(optional)*
 - ⚙️ **Admin dashboard** with charts, filterable reports table, and inline status updates
@@ -108,11 +108,11 @@ npm run dev
 | `CLOUDINARY_API_SECRET` | ✅ | From Cloudinary dashboard |
 | `SENDGRID_API_KEY` | ⬜ Optional | Leave empty to skip email alerts |
 | `FROM_EMAIL` | ⬜ Optional | Verified sender for SendGrid |
-| `YOLO_MODEL_PATH` | ⬜ Optional | Path to custom YOLOv8 `.pt` file |
-| `EFFNET_MODEL_PATH` | ⬜ Optional | Path to custom EfficientNetV2-S `.pt` |
+| `YOLO_MODEL_PATH` | ⬜ Optional | Path to YOLO11 species model (`yolo11m.pt`) |
+| `EFFNET_MODEL_PATH` | ⬜ Optional | Path to Custom YOLO injury model (`best_injury.pt`) |
 | `FRONTEND_URL` | ⬜ Optional | For CORS + email links |
 
-> **No trained models?** The system auto-downloads `yolov8m.pt` from Ultralytics and uses a visual heuristic for injury scoring — works great for demos.
+> **No trained models?** The system auto-downloads `yolo11m.pt` from Ultralytics and uses a visual heuristic for injury scoring — works great for demos.
 
 ---
 
@@ -120,10 +120,14 @@ npm run dev
 
 | Stage | Model | Fallback |
 |---|---|---|
-| Species Detection | Custom YOLOv8m fine-tuned | `yolov8m.pt` pretrained (COCO) |
-| Injury Assessment | Custom EfficientNetV2-S | Visual heuristic (brightness/colour/patch analysis) |
+| Species Detection | Ultralytics YOLO11 (`yolo11m.pt`) | - |
+| Injury Detection | Custom YOLOv8 (`best_injury.pt`) | Visual heuristic (brightness/color variance analysis) |
 
-**Injury Classes:** Healthy → Mild Distress → Moderate Injury → Severe Injury → Critical
+**Severity Scoring Algorithm:**
+Calculated mathematically by comparing the bounding box area of the injury to the bounding box area of the animal.
+- `< 1.5%` body area → **Mild**
+- `1.5% - 5.0%` body area → **Moderate**
+- `> 5.0%` body area → **Severe**
 
 ### Urgency Score Formula
 ```
@@ -137,19 +141,8 @@ Tiers:
   0–9    → ⚪ MONITOR   (log only)
 ```
 
-### Fine-tuning YOLOv8 for 95-100% Detection Confidence
-To organically achieve 95-100% detection confidence scores, you must fine-tune the YOLOv8 model using the provided training script. The script uses aggressive augmentations and an extra-large base model (`yolov8x.pt`).
-
-1. **Prepare Dataset:** Create a `dataset` folder with your images and labels in YOLO format, and create a `data.yaml` file pointing to them.
-2. **Run Training Script:**
-   ```bash
-   cd backend
-   python train_yolo.py --data dataset/data.yaml --model yolov8x.pt --epochs 100
-   ```
-3. **Deploy Weights:** Once training finishes, move the generated `runs/detect/train/weights/best.pt` file to your `backend/` directory and update your `.env`:
-   ```env
-   YOLO_MODEL_PATH=best.pt
-   ```
+### Scalability (YOLO11-Seg Architecture)
+The system's architecture is built to seamlessly scale to **YOLO11-Seg (Instance Segmentation)**. When a Polygon-labeled dataset of 5,000+ medical images is acquired, the injury detection model can be swapped out to output pixel-perfect segmentation masks of wounds without changing the backend logic.
 
 ---
 
