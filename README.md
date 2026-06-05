@@ -8,7 +8,7 @@ An AI-powered, web-based stray animal rescue and triage system — college final
 
 - 📸 **Photo upload** with drag-and-drop interface
 - 📍 **GPS capture** from browser Geolocation API
-- 🤖 **AI triage** — YOLO11m (species) + Custom YOLOv8 (injury) + Area-Ratio Severity Algorithm
+- 🤖 **AI triage** — Agentic Dual-Model Architecture (Moondream2 + DistilBERT NLI)
 - 🔢 **Urgency Score (0–100)** with 5 priority tiers
 - 📧 **Email alert** to nearest NGO via SendGrid *(optional)*
 - ⚙️ **Admin dashboard** with charts, filterable reports table, and inline status updates
@@ -108,11 +108,9 @@ npm run dev
 | `CLOUDINARY_API_SECRET` | ✅ | From Cloudinary dashboard |
 | `SENDGRID_API_KEY` | ⬜ Optional | Leave empty to skip email alerts |
 | `FROM_EMAIL` | ⬜ Optional | Verified sender for SendGrid |
-| `YOLO_MODEL_PATH` | ⬜ Optional | Path to YOLO11 species model (`yolo11m.pt`) |
-| `EFFNET_MODEL_PATH` | ⬜ Optional | Path to Custom YOLO injury model (`best_injury.pt`) |
 | `FRONTEND_URL` | ⬜ Optional | For CORS + email links |
 
-> **No trained models?** The system auto-downloads `yolo11m.pt` from Ultralytics and uses a visual heuristic for injury scoring — works great for demos.
+> **No trained models?** The system automatically downloads the `Moondream2` and `DistilBERT` models seamlessly in the background on first run — works completely out of the box!
 
 ---
 
@@ -123,11 +121,11 @@ flowchart TD
     A[React Web App] --> B[Upload Image]
     B --> C[FastAPI Backend]
     
-    C --> D[YOLO11m]
-    D --> E[Animal Species Detection]
-    E --> F[Moondream2]
+    C --> D[Moondream2 Vision Model]
+    D --> E[Conversational Analysis]
+    E --> F[DistilBERT NLP Agent]
     
-    F --> G[Injury Type Detection]
+    F --> G[Species & Injury Extraction]
     G --> H[Rule Engine]
     H --> I[Severity Level]
     I --> J[Urgency Score]
@@ -145,12 +143,12 @@ Instead of bounding box heuristics, we use a deterministic rule engine to map sp
 | 🟠 **HIGH** | 75 | `deep_wound`, `severe_burn`, `large_open_wound`, etc. | Within 1 hour |
 | 🔴 **CRITICAL** | 100 | `fracture`, `heavy_bleeding`, `road_accident`, `hit_by_vehicle` | Dispatch immediately |
 
-### Model Resilience & Fallback Engine
-Because Small Vision-Language Models (like the 1.8B Moondream2) struggle with strict JSON formatting and exact keyword matching, this pipeline implements several custom resilience techniques:
-- **Chain of Thought Prompting:** The Severity Tier table is injected directly into Moondream's prompt. This forces the AI to reason about the *Severity Level* first, dramatically improving the accuracy of its *Injury Description*.
-- **Smart Natural Language Extraction:** If the model outputs a conversational caption instead of JSON, a heuristic engine scans the text for synonyms (e.g. mapping "burn" to `severe_burn` or "bitten" to `small_wound`).
-- **Dynamic Confidence Scoring:** During fallback extraction, the confidence score is dynamically assigned based on keyword severity (e.g., 98% for "critical/dying", 90% for "healthy", 65% for vague terms like "sick").
-- **Species Override:** YOLO is trained on the COCO dataset, which lacks certain species (e.g., Lions are often misclassified as Bears). If Moondream identifies a specific unlisted animal in its text analysis, its prediction intelligently overrides YOLO.
+### Agentic Two-Model Pipeline
+Because Small Vision-Language Models (like the 1.8B Moondream2) struggle with strict JSON formatting and exact keyword matching, this pipeline implements a highly robust dual-model architecture:
+- **Chain of Thought Prompting:** The Severity Tier table is injected directly into Moondream's prompt. This forces the vision AI to reason about the *Severity Level* first, dramatically improving the accuracy of its *Injury Description*.
+- **Zero-Shot NLP Extraction:** Instead of brittle `if-else` rules, a secondary NLP agent (`distilbert-mnli`) uses semantic mathematics to map Moondream's conversational output exactly to the database schema.
+- **Dynamic Confidence Scoring:** The secondary NLP agent computes a true mathematical probability (Confidence Score) for the injury and species extraction.
+- **Species Detection:** The NLP agent automatically classifies the animal species natively from Moondream's text, completely eliminating the need for a separate YOLO object-detection model.
 
 ### Urgency Score Formula
 ```
@@ -163,6 +161,11 @@ Tiers:
   10–39  → 🟢 LOW       (schedule patrol)
   0–9    → ⚪ MONITOR   (log only)
 ```
+
+### Understanding the Dashboard Metrics
+It is critical to distinguish between **AI Confidence** and **Medical Urgency**:
+- **Injury Confidence (e.g. 90.0%):** Measures *how sure the AI is* about its prediction. For example, if the AI clearly sees a resting cat with no confusing elements, it assigns a high 90% confidence to the `healthy` diagnosis.
+- **Urgency Score (e.g. 0):** Measures *how fast the animal needs rescue*. Since the deterministic Rule Engine assigns a Base Score of 0 to "healthy", the final urgency score is 0. A healthy animal gets placed in the ⚪ **MONITOR** tier because it does not require an emergency rescue team, regardless of how confident the AI is.
 
 ### Scalability (YOLO11-Seg Architecture)
 The system's architecture is built to seamlessly scale to **YOLO11-Seg (Instance Segmentation)**. When a Polygon-labeled dataset of 5,000+ medical images is acquired, the injury detection model can be swapped out to output pixel-perfect segmentation masks of wounds without changing the backend logic.
