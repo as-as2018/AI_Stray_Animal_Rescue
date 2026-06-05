@@ -94,13 +94,7 @@ def load_moondream():
             _moondream_model = AutoModelForCausalLM.from_pretrained(
                 model_id, trust_remote_code=True, revision="2024-05-08"
             ).to(_device)
-            
-            # ADVANCED ML: Quantize to 8-bit INT8 on CPU to save 50% RAM!
-            if _device.type == "cpu":
-                logger.info("Applying INT8 Dynamic Quantization to save RAM on CPU...")
-                _moondream_model = torch.quantization.quantize_dynamic(
-                    _moondream_model, {torch.nn.Linear}, dtype=torch.qint8
-                )
+
             _moondream_tokenizer = AutoTokenizer.from_pretrained(
                 model_id, revision="2024-05-08"
             )
