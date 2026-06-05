@@ -156,13 +156,25 @@ Return JSON only. Do not return explanations.
             
             if classifier is not None:
                 # 1. NLP AI classifies the injury using Moondream's text
-                injury_result = classifier(text, valid_injuries, multi_label=False)
-                injury_type = injury_result["labels"][0]
+                # Fix: Replace underscores with spaces so the NLP model understands the English words!
+                human_readable_injuries = [inj.replace("_", " ") for inj in valid_injuries]
+                injury_result = classifier(
+                    text, 
+                    human_readable_injuries, 
+                    multi_label=False,
+                    hypothesis_template="Based on the text, the animal's physical condition is {}."
+                )
+                injury_type = injury_result["labels"][0].replace(" ", "_")
                 confidence = float(injury_result["scores"][0])
                 
                 # 2. NLP AI classifies the animal species using Moondream's text
                 animal_candidates = ["lion", "tiger", "dog", "cat", "cow", "horse", "goat", "sheep", "monkey", "bird", "pig", "deer", "bear", "elephant", "none"]
-                species_result = classifier(text, animal_candidates, multi_label=False)
+                species_result = classifier(
+                    text, 
+                    animal_candidates, 
+                    multi_label=False,
+                    hypothesis_template="The species of the animal is {}."
+                )
                 best_animal = species_result["labels"][0]
                 moondream_species = best_animal if best_animal != "none" and species_result["scores"][0] > 0.4 else None
             else:
