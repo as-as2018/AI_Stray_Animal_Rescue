@@ -7,7 +7,7 @@ from app.models.report import Report, ReportStatus
 from app.models.ngo import NGO
 from app.core.auth import get_current_user
 from app.services.ml_inference import run_full_pipeline
-from app.services.urgency_score import compute_urgency_score, get_urgency_tier
+from app.services.urgency_score import compute_urgency_score, get_urgency_tier, get_injury_class
 from app.services.cloudinary_svc import upload_image
 from app.services.email_svc import send_ngo_alert
 from app.schemas.schemas import ReportSubmitResponse, AIAnalysisResult, ReportListItem, ReportDetail
@@ -39,15 +39,17 @@ async def submit_report(
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    # 2. Run AI inference
-    ai = run_full_pipeline(image_bytes, settings.yolo_model_path, settings.effnet_model_path)
+    import asyncio
+    # 2. Run AI inference in a separate thread so it doesn't block the server
+    ai = await asyncio.to_thread(
+        run_full_pipeline, image_bytes, settings.yolo_model_path
+    )
 
     # 3. Compute urgency score
     score = compute_urgency_score(
-        injury_class=ai["injury_class"],
-        injury_confidence=ai["injury_confidence"],
-        detection_confidence=ai["detection_confidence"],
-        hours_since_report=0.0,
+        injury_type=ai.get("injury_label", "healthy"),
+        injury_confidence=ai.get("injury_confidence", 0.0),
+        detection_confidence=ai.get("detection_confidence", 0.0),
         is_juvenile=is_juvenile,
     )
     tier = get_urgency_tier(score)
@@ -69,7 +71,7 @@ async def submit_report(
         species=ai.get("species"),
         breed_estimate=ai.get("breed_estimate"),
         detection_confidence=ai.get("detection_confidence"),
-        injury_class=ai.get("injury_class"),
+        injury_class=get_injury_class(ai.get("injury_label", "healthy")),
         injury_label=ai.get("injury_label"),
         injury_confidence=ai.get("injury_confidence"),
         is_juvenile=is_juvenile,

@@ -15,8 +15,7 @@ class Settings(BaseSettings):
     sendgrid_api_key: str = ""
     from_email: str = "noreply@strayrescue.in"
 
-    yolo_model_path: str = "models/yolov8m_stray.pt"
-    effnet_model_path: str = "models/effnetv2s_injury.pt"
+    yolo_model_path: str = "models/yolo11m_stray.pt"
 
     frontend_url: str = "http://localhost:5173"
 

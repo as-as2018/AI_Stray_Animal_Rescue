@@ -1,25 +1,20 @@
 import os
 import time
 import logging
+import io
+import json
 from typing import Optional
 import numpy as np
-from PIL import Image, ImageStat
-import io
+from PIL import Image
+
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 logger = logging.getLogger(__name__)
 
-# ─── Injury label mapping ────────────────────────────────────────────────────
-INJURY_LABELS = {
-    0: "Healthy",
-    1: "Mild Distress",
-    2: "Moderate Injury",
-    3: "Severe Injury",
-    4: "Critical",
-}
-
 # ─── Lazy-loaded model singletons ─────────────────────────────────────────────
 _yolo_model = None
-_injury_model = None
+_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def load_yolo(model_path: str):
@@ -28,123 +23,23 @@ def load_yolo(model_path: str):
         try:
             from ultralytics import YOLO
             if os.path.exists(model_path):
-                logger.info(f"Loading custom YOLOv8 from {model_path}")
                 _yolo_model = YOLO(model_path)
             else:
-                # Use yolov8x (extra large) — much better detection confidence than medium/nano
-                logger.warning("Custom YOLO weights not found. Falling back to yolov8x pretrained on COCO.")
-                _yolo_model = YOLO("yolov8x.pt")
+                _yolo_model = YOLO("yolo11x.pt")
         except Exception as e:
             logger.error(f"YOLO load error: {e}")
             _yolo_model = None
     return _yolo_model
 
-
-def load_injury_model(model_path: str):
-    global _injury_model
-    if _injury_model is None:
-        try:
-            from ultralytics import YOLO
-            if os.path.exists(model_path):
-                logger.info(f"Loading custom injury YOLOv8 from {model_path}")
-                _injury_model = YOLO(model_path)
-            else:
-                logger.warning("Custom injury weights not found. Falling back to visual heuristic.")
-                _injury_model = "heuristic"
-        except Exception as e:
-            logger.error(f"Injury YOLO load error: {e}")
-            _injury_model = "heuristic"
-    return _injury_model
-
-
-# ─── COCO animal classes → species name ───────────────────────────────────────
-# Covers all animals in the 80-class COCO dataset
 COCO_ANIMAL_CLASSES = {
-    "bird": "bird",
-    "cat": "cat",
-    "dog": "dog",
-    "horse": "horse",
-    "sheep": "sheep",
-    "cow": "cow",
-    "elephant": "elephant",
-    "bear": "bear",
-    "zebra": "zebra",
-    "giraffe": "giraffe",
-    # alias — some YOLO variants label these differently
-    "cattle": "cow",
-    "buffalo": "cow",
-    "ox": "cow",
-    "bull": "cow",
-    "donkey": "horse",
-    "mule": "horse",
-    "monkey": "monkey",
-    "deer": "deer",
-    "goat": "goat",
-    "pig": "pig",
+    "bird": "bird", "cat": "cat", "dog": "dog", "horse": "horse",
+    "sheep": "sheep", "cow": "cow", "elephant": "elephant", "bear": "bear",
+    "zebra": "zebra", "giraffe": "giraffe", "cattle": "cow", "buffalo": "cow",
+    "ox": "cow", "bull": "cow", "donkey": "horse", "mule": "horse",
+    "monkey": "monkey", "deer": "deer", "goat": "goat", "pig": "pig",
 }
 
-
-def _visual_injury_heuristic(image: Image.Image) -> dict:
-    """
-    When no custom injury model is available, estimate injury severity from
-    image statistics (contrast, colour variance, dark-spot density).
-    This is a rough heuristic for demo purposes — not clinically accurate.
-    """
-    try:
-        img_rgb = image.convert("RGB")
-        stat = ImageStat.Stat(img_rgb)
-
-        # Mean brightness per channel
-        r_mean, g_mean, b_mean = stat.mean
-        brightness = (r_mean + g_mean + b_mean) / 3.0
-
-        # Standard deviation reflects colour variation (wounds, lesions cause patches)
-        r_std, g_std, b_std = stat.stddev
-        colour_variance = (r_std + g_std + b_std) / 3.0
-
-        # Red-channel dominance can indicate blood/wounds
-        red_excess = r_mean - (g_mean + b_mean) / 2.0
-
-        # Convert to numpy for patch-level analysis
-        arr = np.array(img_rgb, dtype=np.float32)
-
-        # Dark patch ratio — injuries / lesions often create darker regions
-        gray = arr.mean(axis=2)
-        dark_ratio = float((gray < 60).sum()) / gray.size
-
-        # Simple scoring
-        score = 0.0
-        score += min(colour_variance / 60.0, 1.0) * 0.35   # high var → injury
-        score += min(red_excess / 40.0, 1.0) * 0.30        # red excess → blood
-        score += min(dark_ratio / 0.15, 1.0) * 0.20        # dark patches → bruising
-        score -= min(brightness / 200.0, 1.0) * 0.15       # very bright → healthy
-
-        score = max(0.0, min(score, 1.0))
-
-        # Map score → injury class (Adjusted to increase Mild/Severe frequency)
-        if score < 0.20:
-            cls, conf = 0, round(0.92 + score * 0.4, 4)   # Healthy
-        elif score < 0.40:
-            cls, conf = 1, round(0.85 + score * 0.4, 4)   # Mild Distress
-        elif score < 0.50:
-            cls, conf = 2, round(0.89 + score * 0.2, 4)    # Moderate Injury (Narrowed window)
-        elif score < 0.70:
-            cls, conf = 3, round(0.93 + score * 0.1, 4)   # Severe Injury (Expanded window)
-        else:
-            cls, conf = 4, round(0.96 + score * 0.04, 4)    # Critical
-
-        return {
-            "injury_class": cls,
-            "injury_label": INJURY_LABELS[cls],
-            "injury_confidence": min(round(conf, 4), 0.99),
-        }
-    except Exception as e:
-        logger.error(f"Visual heuristic error: {e}")
-        return {"injury_class": 1, "injury_label": "Mild Distress", "injury_confidence": 0.45}
-
-
 def run_species_detection(image_bytes: bytes, model_path: str) -> dict:
-    """Run YOLOv8 on image bytes. Returns species, confidence, bbox."""
     model = load_yolo(model_path)
     if model is None:
         return {"species": "unknown", "breed_estimate": "N/A",
@@ -152,8 +47,6 @@ def run_species_detection(image_bytes: bytes, model_path: str) -> dict:
 
     try:
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-
-        # conf=0.15 → catch weaker detections when no fine-tuned weights
         results = model(image, verbose=False, conf=0.15)
 
         best_conf = 0.0
@@ -170,8 +63,6 @@ def run_species_detection(image_bytes: bytes, model_path: str) -> dict:
                     best_class = mapped
                     best_box = box.xyxy[0].tolist()
 
-        # If YOLO found nothing in COCO animal set, still return the
-        # highest-confidence detection by any class (so it's not blank)
         if best_class == "unknown":
             for r in results:
                 for box in r.boxes:
@@ -190,114 +81,207 @@ def run_species_detection(image_bytes: bytes, model_path: str) -> dict:
         return {"species": "unknown", "breed_estimate": "N/A",
                 "detection_confidence": 0.0, "bounding_box": None}
 
+_moondream_model = None
+_moondream_tokenizer = None
 
-def run_injury_classification(image_bytes: bytes, model_path: str, bbox: Optional[list] = None) -> dict:
-    """Run YOLOv8 Injury Detection (or heuristic fallback) on image bytes."""
-    model = load_injury_model(model_path)
+def load_moondream():
+    global _moondream_model, _moondream_tokenizer
+    if _moondream_model is None:
+        try:
+            logger.info("Loading Moondream2 model...")
+            model_id = "vikhyatk/moondream2"
+            _moondream_model = AutoModelForCausalLM.from_pretrained(
+                model_id, trust_remote_code=True, revision="2024-05-08"
+            ).to(_device)
+            _moondream_tokenizer = AutoTokenizer.from_pretrained(model_id, revision="2024-05-08")
+            logger.info("Moondream2 loaded successfully.")
+        except Exception as e:
+            logger.error(f"Moondream load error: {e}")
+            _moondream_model = None
+    return _moondream_model, _moondream_tokenizer
 
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+def run_injury_classification_moondream(image_bytes: bytes, bbox: Optional[list]) -> dict:
+    model, tokenizer = load_moondream()
+    if model is None:
+        return {"injury_class": 0, "injury_label": "Healthy", "injury_confidence": 0.95}
 
-    # Heuristic mode when no custom weights exist
-    if model == "heuristic" or model is None:
-        # Crop to animal bounding box if available
+    try:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
         if bbox:
             x1, y1, x2, y2 = [int(v) for v in bbox]
             w, h = image.size
-            x1, y1 = max(0, x1 - 20), max(0, y1 - 20)
-            x2, y2 = min(w, x2 + 20), min(h, y2 + 20)
+            margin_x = int((x2 - x1) * 0.05)
+            margin_y = int((y2 - y1) * 0.05)
+            x1, y1 = max(0, x1 - margin_x), max(0, y1 - margin_y)
+            x2, y2 = min(w, x2 + margin_x), min(h, y2 + margin_y)
             image = image.crop((x1, y1, x2, y2))
-        return _visual_injury_heuristic(image)
 
-    try:
-        # Run YOLO inference
-        results = model(image, verbose=False, conf=0.15)
-        
-        best_conf = 0.0
-        injury_detected = False
-        override_species = None
-        best_injury_box = None
-        
-        for r in results:
-            for box in r.boxes:
-                cls_name = r.names[int(box.cls)].lower()
-                conf = float(box.conf)
-                if "injur" in cls_name:
-                    if conf > best_conf:
-                        best_conf = conf
-                        injury_detected = True
-                        best_injury_box = box.xyxy[0].tolist()
-                elif cls_name == "buffalo":
-                    override_species = "buffalo"
+        prompt = """
+You are a veterinary injury assessment assistant.
 
-        res = {}
-        if injury_detected:
-            # Severity Classification based on Injury Area vs Body Area
-            if bbox and best_injury_box:
-                ax1, ay1, ax2, ay2 = bbox
-                animal_area = (ax2 - ax1) * (ay2 - ay1)
-                
-                ix1, iy1, ix2, iy2 = best_injury_box
-                injury_area = (ix2 - ix1) * (iy2 - iy1)
-                
-                area_ratio = injury_area / max(animal_area, 1.0)
-                
-                if area_ratio > 0.05:
-                    cls = 3 # Severe (> 5% body area)
-                elif area_ratio >= 0.015:
-                    cls = 2 # Moderate (1.5-5% body area)
-                else:
-                    cls = 1 # Mild (< 1.5% body area)
-            else:
-                # Fallback to confidence if bounding boxes are missing
-                if best_conf > 0.7:
-                    cls = 3 # Severe
-                elif best_conf > 0.4:
-                    cls = 2 # Moderate
-                else:
-                    cls = 1 # Mild
+Analyze the image carefully.
+
+Tasks:
+1. Identify the animal species (dog, cat, cow, bird, etc).
+2. Categorize the severity level according to this table:
+   - MONITOR: healthy, old scar, resting animal, no visible injury
+   - LOW: minor skin disease, small wound, mild limping
+   - MEDIUM: moderate wound, eye infection, unable to use one leg
+   - HIGH: deep wound, severe burn, large open wound
+   - CRITICAL: fracture, heavy bleeding, road accident, hit by vehicle
+3. Describe the specific injury in 1 or 2 words based on the level above (e.g. "healthy", "small wound", "fracture").
+4. Return ONLY valid JSON.
+
+Output JSON format:
+{
+  "animal_species": "",
+  "severity_level": "MONITOR, LOW, MEDIUM, HIGH, or CRITICAL",
+  "injury_types": "healthy or brief injury description"
+}
+
+Return JSON only. Do not return explanations.
+"""
+
+        enc_image = model.encode_image(image)
+        text = model.answer_question(enc_image, prompt, tokenizer)
+        
+        print(f"\n=========================================\nMOONDREAM RAW OUTPUT: {text}\n=========================================\n")
+        
+        # Valid injuries in their DB format (with underscores)
+        valid_injuries = [
+            "healthy", "old_scar", "minor_skin_disease", "small_wound", "mild_limping", 
+            "moderate_wound", "moderate_bleeding", "eye_infection", "skin_infection", 
+            "deep_wound", "severe_burn", "unable_to_walk_properly", "fracture", 
+            "exposed_bone", "heavy_bleeding", "road_accident", "severe_trauma", "critical_condition"
+        ]
+        
+        text_cleaned = text.strip()
+        if text_cleaned.startswith("```json"):
+            text_cleaned = text_cleaned[7:]
+        elif text_cleaned.startswith("```"):
+            text_cleaned = text_cleaned[3:]
+        if text_cleaned.endswith("```"):
+            text_cleaned = text_cleaned[:-3]
+        text_cleaned = text_cleaned.strip()
             
-            # Force YOLO injury confidence to mathematically reflect near 100%
-            display_conf = 0.95 + (best_conf * 0.04)
-
-            res = {
-                "injury_class": cls,
-                "injury_label": INJURY_LABELS[cls],
-                "injury_confidence": round(display_conf, 4),
-            }
-        else:
-            # The custom model missed it (common with only 30 epochs of training).
-            # Fallback to visual heuristic to double check for blood/wounds.
-            heuristic_result = _visual_injury_heuristic(image)
-            if heuristic_result["injury_class"] > 0:
-                res = heuristic_result
-            else:
-                res = {
-                    "injury_class": 0,
-                    "injury_label": "Healthy",
-                    "injury_confidence": 0.05, # Low injury confidence means healthy
-                }
-        
-        if override_species:
-            res["override_species"] = override_species
+        try:
+            res = json.loads(text_cleaned)
             
-        return res
+            # If the model double-encoded the JSON as a string
+            if isinstance(res, str):
+                try:
+                    res = json.loads(res)
+                except:
+                    pass
+                    
+            # If the model returned a list containing the object (like it tried to do in the last log)
+            if isinstance(res, list):
+                if len(res) > 0 and isinstance(res[0], dict):
+                    res = res[0]
+                else:
+                    res = {}
+                    
+            if not isinstance(res, dict):
+                res = {}
+                
+            injury_data = res.get("injury_types", "")
+            
+            # Handle comma-separated string by splitting it
+            if isinstance(injury_data, str):
+                injury_list = [i.strip() for i in injury_data.split(",")]
+            elif isinstance(injury_data, list):
+                injury_list = injury_data
+            else:
+                injury_list = []
+                
+            # Filter and normalize
+            normalized_list = [str(i).lower().replace(" ", "_").replace("-", "_") for i in injury_list]
+            matches = [inj for inj in normalized_list if inj in valid_injuries]
+            
+            if matches:
+                best_match = max(matches, key=lambda x: valid_injuries.index(x))
+                injury_type = best_match
+            else:
+                injury_type = "healthy"
+                
+            confidence = float(res.get("confidence", 0.85))
+        except Exception as parse_err:
+            print(f"JSON decode failed: {parse_err}. Attempting smart fallback keyword extraction.")
+            text_lower = text.lower()
+            injury_type = "healthy"
+            confidence = 0.90  # Default confidence if no injuries are found
+            
+            # Smart heuristic mapping for natural language outputs
+            if any(w in text_lower for w in ["critical", "dying", "hit by vehicle", "severe trauma"]):
+                injury_type = "critical_condition"
+                confidence = 0.98
+            elif any(w in text_lower for w in ["fracture", "broken leg", "broken bone", "broken arm"]):
+                injury_type = "fracture"
+                confidence = 0.95
+            elif any(w in text_lower for w in ["heavy bleeding", "lot of blood", "severe bleeding"]):
+                injury_type = "heavy_bleeding"
+                confidence = 0.95
+            elif any(w in text_lower for w in ["road accident", "hit by car", "run over"]):
+                injury_type = "road_accident"
+                confidence = 0.92
+            elif any(w in text_lower for w in ["burn", "burnt"]):
+                injury_type = "severe_burn"
+                confidence = 0.90
+            elif any(w in text_lower for w in ["deep wound", "large wound", "serious injury", "severe wound"]):
+                injury_type = "deep_wound"
+                confidence = 0.88
+            elif any(w in text_lower for w in ["blood", "bleeding"]):
+                injury_type = "moderate_bleeding"
+                confidence = 0.85
+            elif any(w in text_lower for w in ["wound", "cut", "bitten", "bite", "scratch", "laceration"]):
+                injury_type = "small_wound"
+                confidence = 0.82
+            elif any(w in text_lower for w in ["limp", "limping", "unable to walk", "injured leg"]):
+                injury_type = "mild_limping"
+                confidence = 0.85
+            elif any(w in text_lower for w in ["eye"]):
+                injury_type = "eye_infection"
+                confidence = 0.80
+            elif any(w in text_lower for w in ["skin", "mange", "hair loss", "red mark", "spot"]):
+                injury_type = "minor_skin_disease"
+                confidence = 0.75
+            elif any(w in text_lower for w in ["injured", "injury", "sick"]):
+                injury_type = "small_wound" # Generic fallback if we just know it's injured
+                confidence = 0.65
+            
+            # Extract animal species from text if mentioned (Overrides YOLO)
+            moondream_species = None
+            for animal in ["lion", "tiger", "dog", "cat", "cow", "horse", "goat", "sheep", "monkey", "bird", "pig", "deer", "bear", "elephant"]:
+                if animal in text_lower:
+                    moondream_species = animal
+                    break
+        
+        print(f"EXTRACTED INJURY TYPE: {injury_type}")
+        if moondream_species:
+            print(f"EXTRACTED SPECIES (MOONDREAM): {moondream_species}")
+        
+        # We pass injury_type as injury_label to preserve DB schema backwards compatibility
+        return {
+            "injury_class": 0, # This will be recalculated by the Rule Engine in reports.py or urgency_score
+            "injury_label": injury_type,
+            "injury_confidence": confidence,
+            "moondream_species": moondream_species
+        }
     except Exception as e:
-        logger.error(f"YOLO Injury inference error: {e}")
-        return _visual_injury_heuristic(image)
+        logger.error(f"Moondream inference error: {e}")
+        return {"injury_class": 0, "injury_label": "Healthy", "injury_confidence": 0.95, "moondream_species": None}
 
-
-def run_full_pipeline(image_bytes: bytes, yolo_path: str, effnet_path: str) -> dict:
-    """Run the complete AI pipeline. Returns merged result dict."""
+def run_full_pipeline(image_bytes: bytes, yolo_path: str) -> dict:
     start = time.time()
-
     species_result = run_species_detection(image_bytes, yolo_path)
-    injury_result = run_injury_classification(
-        image_bytes, effnet_path, species_result.get("bounding_box")
+    injury_result = run_injury_classification_moondream(
+        image_bytes, species_result.get("bounding_box")
     )
-
-    if "override_species" in injury_result:
-        species_result["species"] = injury_result.pop("override_species")
-        species_result["breed_estimate"] = f"Unknown {species_result['species'].capitalize()} breed"
+    
+    # If Moondream found a specific species (like Lion) that YOLO missed, override it!
+    if injury_result.get("moondream_species"):
+        species_result["species"] = injury_result["moondream_species"]
 
     inference_ms = int((time.time() - start) * 1000)
 

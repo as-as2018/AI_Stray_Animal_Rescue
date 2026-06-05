@@ -116,18 +116,41 @@ npm run dev
 
 ---
 
-## 🤖 AI Pipeline
+## 🤖 AI Pipeline Architecture
 
-| Stage | Model | Fallback |
-|---|---|---|
-| Species Detection | Ultralytics YOLO11 (`yolo11m.pt`) | - |
-| Injury Detection | Custom YOLOv8 (`best_injury.pt`) | Visual heuristic (brightness/color variance analysis) |
+```mermaid
+flowchart TD
+    A[React Web App] --> B[Upload Image]
+    B --> C[FastAPI Backend]
+    
+    C --> D[YOLO11m]
+    D --> E[Animal Species Detection]
+    E --> F[Moondream2]
+    
+    F --> G[Injury Type Detection]
+    G --> H[Rule Engine]
+    H --> I[Severity Level]
+    I --> J[Urgency Score]
+    J --> K[Rescue Recommendation]
+```
 
-**Severity Scoring Algorithm:**
-Calculated mathematically by comparing the bounding box area of the injury to the bounding box area of the animal.
-- `< 1.5%` body area → **Mild**
-- `1.5% - 5.0%` body area → **Moderate**
-- `> 5.0%` body area → **Severe**
+**Rule Engine Severity Mapping:**
+Instead of bounding box heuristics, we use a deterministic rule engine to map specific medical conditions (detected by Moondream2 offline) to a Base Severity Level:
+
+| Tier | Base Score | Conditions | Action |
+|---|---|---|---|
+| ⚪ **MONITOR** | 0 | `healthy`, `old_scar`, `minor_hair_loss`, `resting_animal`, etc. | Log only |
+| 🟢 **LOW** | 25 | `minor_skin_disease`, `small_wound`, `mild_limping`, etc. | Schedule patrol |
+| 🔵 **MEDIUM** | 50 | `moderate_wound`, `eye_infection`, `unable_to_use_one_leg`, etc. | Within 4 hours |
+| 🟠 **HIGH** | 75 | `deep_wound`, `severe_burn`, `large_open_wound`, etc. | Within 1 hour |
+| 🔴 **CRITICAL** | 100 | `fracture`, `heavy_bleeding`, `road_accident`, `hit_by_vehicle` | Dispatch immediately |
+
+### Model Resilience & Fallback Engine
+Because Small Vision-Language Models (like the 1.8B Moondream2) struggle with strict JSON formatting and exact keyword matching, this pipeline implements several custom resilience techniques:
+- **Chain of Thought Prompting:** The Severity Tier table is injected directly into Moondream's prompt. This forces the AI to reason about the *Severity Level* first, dramatically improving the accuracy of its *Injury Description*.
+- **Smart Natural Language Extraction:** If the model outputs a conversational caption instead of JSON, a heuristic engine scans the text for synonyms (e.g. mapping "burn" to `severe_burn` or "bitten" to `small_wound`).
+- **Dynamic Confidence Scoring:** During fallback extraction, the confidence score is dynamically assigned based on keyword severity (e.g., 98% for "critical/dying", 90% for "healthy", 65% for vague terms like "sick").
+- **Species Override:** YOLO is trained on the COCO dataset, which lacks certain species (e.g., Lions are often misclassified as Bears). If Moondream identifies a specific unlisted animal in its text analysis, its prediction intelligently overrides YOLO.
 
 ### Urgency Score Formula
 ```
