@@ -263,7 +263,7 @@ The **Urgency Score (0–100)** is a weighted Python function:
 ```python
 def compute_urgency_score(
     injury_class: int,           # 0–4 (from EfficientNetV2-S)
-    injury_confidence: float,    # 0.0–1.0
+    ai_confidence: float,    # 0.0–1.0
     detection_confidence: float, # 0.0–1.0 (from YOLOv8m)
     hours_since_report: float,   # hours elapsed since submission
     is_juvenile: bool            # pup/kitten = more vulnerable
@@ -273,7 +273,7 @@ def compute_urgency_score(
     base = INJURY_WEIGHTS[injury_class]
 
     # AI confidence factor
-    confidence_factor = (injury_confidence * 0.7 + detection_confidence * 0.3)
+    confidence_factor = (ai_confidence * 0.7 + detection_confidence * 0.3)
 
     # Time escalation (older unattended cases get higher priority)
     time_bonus = min(hours_since_report * 2.0, 20)
@@ -374,7 +374,7 @@ def compute_urgency_score(
     "detection_confidence": 0.94,
     "injury_class": 3,
     "injury_label": "Severe Injury",
-    "injury_confidence": 0.88,
+    "ai_confidence": 0.88,
     "is_juvenile": false,
     "model_version": "yolov8m-v1.2 | effnetv2s-v1.0",
     "inference_time_ms": 2100
@@ -467,7 +467,7 @@ Fields:
     "species": "dog",
     "injury_label": "Severe Injury",
     "detection_confidence": 0.94,
-    "injury_confidence": 0.88
+    "ai_confidence": 0.88
   },
   "message": "Report submitted. An NGO has been notified via email."
 }

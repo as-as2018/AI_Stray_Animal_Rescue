@@ -40,7 +40,7 @@ class AIAnalysisResult(BaseModel):
     detection_confidence: float
     injury_class: int
     injury_label: str
-    injury_confidence: float
+    ai_confidence: float
     is_juvenile: bool
     inference_time_ms: int
 
@@ -77,7 +77,7 @@ class ReportDetail(ReportListItem):
     reporter_email: str
     reporter_phone: Optional[str]
     detection_confidence: Optional[float]
-    injury_confidence: Optional[float]
+    ai_confidence: Optional[float]
     assigned_ngo_name: Optional[str]
     assigned_at: Optional[datetime]
     responder_name: Optional[str]

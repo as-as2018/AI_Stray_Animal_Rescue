@@ -51,7 +51,7 @@ class Report(Document):
     detection_confidence: Optional[float] = None
     injury_class: Optional[int] = None
     injury_label: Optional[str] = None
-    injury_confidence: Optional[float] = None
+    ai_confidence: Optional[float] = None
     is_juvenile: bool = False
     inference_time_ms: Optional[int] = None
     model_version: str = "yolov8m-v1 | effnetv2s-v1"

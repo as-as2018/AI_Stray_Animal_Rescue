@@ -153,7 +153,7 @@ export default function ReportPage() {
                                 ['Species', result.ai_result.species?.toUpperCase() || '—'],
                                 ['Condition', result.ai_result.injury_label],
                                 ['Detection Confidence', `${(result.ai_result.detection_confidence * 100).toFixed(1)}%`],
-                                ['Injury Confidence', `${(result.ai_result.injury_confidence * 100).toFixed(1)}%`],
+                                ['AI Confidence', `${(result.ai_result.ai_confidence * 100).toFixed(1)}%`],
                             ].map(([l, v]) => (
                                 <div className="result-field" key={l}>
                                     <div className="result-field-label">{l}</div>

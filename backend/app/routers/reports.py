@@ -48,7 +48,7 @@ async def submit_report(
     # 3. Compute urgency score
     score = compute_urgency_score(
         injury_type=ai.get("injury_label", "healthy"),
-        injury_confidence=ai.get("injury_confidence", 0.0),
+        ai_confidence=ai.get("ai_confidence", 0.0),
         detection_confidence=ai.get("detection_confidence", 0.0),
         is_juvenile=is_juvenile,
     )
@@ -73,7 +73,7 @@ async def submit_report(
         detection_confidence=ai.get("detection_confidence"),
         injury_class=get_injury_class(ai.get("injury_label", "healthy")),
         injury_label=ai.get("injury_label"),
-        injury_confidence=ai.get("injury_confidence"),
+        ai_confidence=ai.get("ai_confidence"),
         is_juvenile=is_juvenile,
         inference_time_ms=ai.get("inference_time_ms"),
         description=description,
@@ -118,7 +118,7 @@ async def submit_report(
             detection_confidence=ai.get("detection_confidence", 0.0),
             injury_class=ai.get("injury_class", 0),
             injury_label=ai.get("injury_label", "Healthy"),
-            injury_confidence=ai.get("injury_confidence", 0.0),
+            ai_confidence=ai.get("ai_confidence", 0.0),
             is_juvenile=is_juvenile,
             inference_time_ms=ai.get("inference_time_ms", 0),
         ),
@@ -163,7 +163,7 @@ def _to_detail(r: Report) -> ReportDetail:
         longitude=r.longitude, address=r.address, reporter_name=r.reporter_name,
         created_at=r.created_at, is_juvenile=r.is_juvenile, description=r.description,
         reporter_email=r.reporter_email, reporter_phone=r.reporter_phone,
-        detection_confidence=r.detection_confidence, injury_confidence=r.injury_confidence,
+        detection_confidence=r.detection_confidence, ai_confidence=r.ai_confidence,
         assigned_ngo_name=r.assigned_ngo_name, assigned_at=r.assigned_at,
         responder_name=r.responder_name, resolved_at=r.resolved_at,
         animal_rescued=r.animal_rescued, vet_notes=r.vet_notes,

@@ -164,7 +164,7 @@ Tiers:
 
 ### Understanding the Dashboard Metrics
 It is critical to distinguish between **AI Confidence** and **Medical Urgency**:
-- **Injury Confidence (e.g. 90.0%):** Measures *how sure the AI is* about its prediction. For example, if the AI clearly sees a resting cat with no confusing elements, it assigns a high 90% confidence to the `healthy` diagnosis.
+- **AI Confidence (e.g. 90.0%):** Measures *how sure the AI is* about its prediction. For example, if the AI clearly sees a resting cat with no confusing elements, it assigns a high 90% confidence to the `healthy` diagnosis.
 - **Urgency Score (e.g. 0):** Measures *how fast the animal needs rescue*. Since the deterministic Rule Engine assigns a Base Score of 0 to "healthy", the final urgency score is 0. A healthy animal gets placed in the ⚪ **MONITOR** tier because it does not require an emergency rescue team, regardless of how confident the AI is.
 
 ### Scalability (YOLO11-Seg Architecture)

@@ -3,6 +3,7 @@ import API from '../services/api';
 import { UrgencyBadge, StatusBadge } from '../components/Badges';
 import toast from 'react-hot-toast';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import RuleEngine from '../components/RuleEngine';
 
 const TIER_COLORS = { CRITICAL: '#ef4444', HIGH: '#f59e0b', MEDIUM: '#3b82f6', LOW: '#22c55e', MONITOR: '#6b7280' };
 
@@ -187,6 +188,8 @@ export default function AdminDashboard() {
                     </tbody>
                 </table>
             </div>
+            
+            <RuleEngine />
         </div>
     );
 }

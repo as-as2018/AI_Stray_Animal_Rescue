@@ -139,7 +139,7 @@ score = (injury_weight × confidence_factor) + time_bonus + juvenile_bonus
 
 Where:
   injury_weight      = {Healthy:0, Mild:25, Moderate:50, Severe:75, Critical:100}
-  confidence_factor  = (injury_confidence × 0.7) + (detection_confidence × 0.3)
+  confidence_factor  = (ai_confidence × 0.7) + (detection_confidence × 0.3)
   time_bonus         = min(hours_elapsed × 2.0, 20)   [older cases escalate]
   juvenile_bonus     = 10 if pup/kitten, else 0
 

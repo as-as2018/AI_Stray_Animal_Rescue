@@ -10,6 +10,8 @@ from PIL import Image
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
+from app.services.urgency_score import RULE_ENGINE
+
 logger = logging.getLogger(__name__)
 
 # ─── Lazy-loaded model singletons ─────────────────────────────────────────────
@@ -57,7 +59,7 @@ def load_nlp_classifier():
 def run_moondream_pipeline(image_bytes: bytes) -> dict:
     model, tokenizer = load_moondream()
     if model is None:
-        return {"species": "unknown", "breed_estimate": "N/A", "detection_confidence": 0.0, "bounding_box": None, "injury_class": 0, "injury_label": "Healthy", "injury_confidence": 0.95}
+        return {"species": "unknown", "breed_estimate": "N/A", "detection_confidence": 0.0, "bounding_box": None, "injury_class": 0, "injury_label": "Healthy", "ai_confidence": 0.95}
 
     try:
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
@@ -92,13 +94,8 @@ Return JSON only. Do not return explanations.
         
         print(f"\n=========================================\nMOONDREAM RAW OUTPUT: {text}\n=========================================\n")
         
-        # Valid injuries in their DB format (with underscores)
-        valid_injuries = [
-            "healthy", "old_scar", "minor_skin_disease", "small_wound", "mild_limping", 
-            "moderate_wound", "moderate_bleeding", "eye_infection", "skin_infection", 
-            "deep_wound", "severe_burn", "unable_to_walk_properly", "fracture", 
-            "exposed_bone", "heavy_bleeding", "road_accident", "severe_trauma", "critical_condition"
-        ]
+        # Pull valid injuries directly from the master Rule Engine so they never go out of sync
+        valid_injuries = list(RULE_ENGINE.keys())
         
         text_cleaned = text.strip()
         if text_cleaned.startswith("```json"):
@@ -158,14 +155,51 @@ Return JSON only. Do not return explanations.
                 # 1. NLP AI classifies the injury using Moondream's text
                 # Fix: Replace underscores with spaces so the NLP model understands the English words!
                 human_readable_injuries = [inj.replace("_", " ") for inj in valid_injuries]
+                human_readable_injuries.append("not enough information")
+                
                 injury_result = classifier(
                     text, 
                     human_readable_injuries, 
-                    multi_label=False,
+                    multi_label=True, # Use independent scoring so it doesn't force a 100% sum!
                     hypothesis_template="Based on the text, the animal's physical condition is {}."
                 )
-                injury_type = injury_result["labels"][0].replace(" ", "_")
-                confidence = float(injury_result["scores"][0])
+                
+                best_label = injury_result["labels"][0]
+                best_score = injury_result["scores"][0]
+                
+                if best_label == "not enough information":
+                    best_score = 0.0 # Force fallback if Moondream explicitly says it doesn't know
+                
+                if best_score > 0.45:
+                    injury_type = best_label.replace(" ", "_")
+                    confidence = float(best_score)
+                else:
+                    # ZERO-SHOT HIERARCHICAL FALLBACK
+                    # 1. First, classify the broad tier
+                    from app.services.urgency_score import TIERS, get_conditions_for_tier
+                    severity_result = classifier(
+                        text,
+                        TIERS,
+                        multi_label=False,
+                        hypothesis_template="The severity of this medical situation is {}."
+                    )
+                    best_tier = severity_result["labels"][0]
+                    
+                    # 2. Then, narrow down and classify the exact injury from ONLY that tier's conditions!
+                    tier_conditions = get_conditions_for_tier(best_tier)
+                    if tier_conditions:
+                        human_readable_tier_conds = [inj.replace("_", " ") for inj in tier_conditions]
+                        sub_result = classifier(
+                            text,
+                            human_readable_tier_conds,
+                            multi_label=True,
+                            hypothesis_template="Based on the text, the animal's physical condition is {}."
+                        )
+                        injury_type = sub_result["labels"][0].replace(" ", "_")
+                        confidence = float(sub_result["scores"][0])
+                    else:
+                        injury_type = best_tier
+                        confidence = float(severity_result["scores"][0])
                 
                 # 2. NLP AI classifies the animal species using Moondream's text
                 animal_candidates = ["lion", "tiger", "dog", "cat", "cow", "horse", "goat", "sheep", "monkey", "bird", "pig", "deer", "bear", "elephant", "none"]
@@ -195,11 +229,11 @@ Return JSON only. Do not return explanations.
             "bounding_box": None,
             "injury_class": 0, # This will be recalculated by the Rule Engine in reports.py or urgency_score
             "injury_label": injury_type,
-            "injury_confidence": confidence
+            "ai_confidence": confidence
         }
     except Exception as e:
         logger.error(f"Moondream inference error: {e}")
-        return {"species": "unknown", "breed_estimate": "N/A", "detection_confidence": 0.0, "bounding_box": None, "injury_class": 0, "injury_label": "Healthy", "injury_confidence": 0.95}
+        return {"species": "unknown", "breed_estimate": "N/A", "detection_confidence": 0.0, "bounding_box": None, "injury_class": 0, "injury_label": "Healthy", "ai_confidence": 0.95}
 
 def run_full_pipeline(image_bytes: bytes, yolo_path: str = None) -> dict:
     # yolo_path is kept as an optional argument to prevent breaking older router imports

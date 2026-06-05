@@ -1,37 +1,42 @@
+import logging
 from app.models.report import UrgencyTier
+from app.models.rule import RuleTier
 
+logger = logging.getLogger(__name__)
 
-RULE_ENGINE = {
-    # MONITOR (0-9) - Base 0
-    "healthy": 0, "old_scar": 0, "minor_hair_loss": 0, 
-    "minor_skin_discoloration": 0, "resting_animal": 0, "no_visible_injury": 0,
-    
-    # LOW (10-39) - Base 25
-    "minor_skin_disease": 25, "mild_eye_irritation": 25, "small_wound": 25, 
-    "minor_cut": 25, "small_abrasion": 25, "mild_limping": 25, 
-    "minor_swelling": 25, "minor_ear_injury": 25,
-    
-    # MEDIUM (40-69) - Base 50
-    "moderate_wound": 50, "moderate_bleeding": 50, "eye_infection": 50, 
-    "skin_infection": 50, "infected_wound": 50, "moderate_burn": 50, 
-    "moderate_swelling": 50, "unable_to_use_one_leg": 50, 
-    "visible_pain": 50, "moderate_laceration": 50,
-    
-    # HIGH (70-89) - Base 75
-    "deep_wound": 75, "severe_burn": 75, "major_eye_injury": 75, 
-    "large_skin_infection": 75, "severe_laceration": 75, "severe_swelling": 75, 
-    "unable_to_walk_properly": 75, "major_bleeding": 75, 
-    "large_open_wound": 75, "advanced_infection": 75,
-    
-    # CRITICAL (90-100) - Base 100
-    "fracture": 100, "exposed_bone": 100, "heavy_bleeding": 100, 
-    "road_accident": 100, "hit_by_vehicle": 100, "unconscious": 100, 
-    "unable_to_stand": 100, "severe_trauma": 100, 
-    "life_threatening_burn": 100, "multiple_fractures": 100, 
-    "severe_head_injury": 100, "critical_condition": 100
-}
+RULE_ENGINE = {}
+TIERS = ["MONITOR", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+TIER_CONDITIONS = {}
+
+async def refresh_rule_engine():
+    global RULE_ENGINE, TIERS, TIER_CONDITIONS
+    try:
+        tiers = await RuleTier.find_all().to_list()
+        if tiers:
+            TIERS = [t.tier_name for t in tiers]
+            new_engine = {}
+            new_tier_conds = {}
+            for t in tiers:
+                new_tier_conds[t.tier_name] = [cond.lower().replace(" ", "_") for cond in t.conditions]
+                for cond in t.conditions:
+                    new_engine[cond.lower().replace(" ", "_")] = t.base_score
+            RULE_ENGINE = new_engine
+            TIER_CONDITIONS = new_tier_conds
+            logger.info(f"Rule Engine refreshed successfully. Loaded {len(RULE_ENGINE)} conditions across {len(TIERS)} tiers.")
+    except Exception as e:
+        logger.error(f"Failed to refresh rule engine: {e}")
+
+def get_conditions_for_tier(tier_name: str) -> list:
+    return TIER_CONDITIONS.get(tier_name.upper(), [])
 
 def get_injury_class(injury_type: str) -> int:
+    injury_upper = injury_type.upper()
+    if injury_upper == "CRITICAL": return 4
+    if injury_upper == "HIGH": return 3
+    if injury_upper == "MEDIUM": return 2
+    if injury_upper == "LOW": return 1
+    if injury_upper == "MONITOR": return 0
+
     base = RULE_ENGINE.get(injury_type.lower(), 50)
     if base >= 100: return 4
     if base >= 75: return 3
@@ -41,7 +46,7 @@ def get_injury_class(injury_type: str) -> int:
 
 def compute_urgency_score(
     injury_type: str,
-    injury_confidence: float,
+    ai_confidence: float,
     detection_confidence: float,
     hours_since_report: float = 0.0,
     is_juvenile: bool = False,
@@ -49,10 +54,16 @@ def compute_urgency_score(
     """
     Compute an urgency score (0–100) based on the Rule Engine mapped injury type and contextual factors.
     """
-    base = RULE_ENGINE.get(injury_type.lower(), 50) # default to Medium
+    injury_upper = injury_type.upper()
+    if injury_upper == "CRITICAL": base = 100
+    elif injury_upper == "HIGH": base = 75
+    elif injury_upper == "MEDIUM": base = 50
+    elif injury_upper == "LOW": base = 25
+    elif injury_upper == "MONITOR": base = 0
+    else: base = RULE_ENGINE.get(injury_type.lower(), 50) # default to Medium
 
     # Weighted confidence factor: injury confidence matters more
-    confidence_factor = (injury_confidence * 0.7) + (detection_confidence * 0.3)
+    confidence_factor = (ai_confidence * 0.7) + (detection_confidence * 0.3)
 
     # Time escalation: older unattended reports rank higher (max +20)
     time_bonus = min(hours_since_report * 2.0, 20.0)
