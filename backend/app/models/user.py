@@ -2,13 +2,12 @@ from beanie import Document
 from pydantic import EmailStr, Field
 from typing import Optional
 from datetime import datetime
-from enum import Enum
+from enum import IntEnum
 
-
-class UserRole(str, Enum):
-    citizen = "citizen"
-    ngo_admin = "ngo_admin"
-    super_admin = "super_admin"
+class UserRole(IntEnum):
+    admin = 1
+    user = 2
+    ngo = 3
 
 
 class User(Document):
@@ -16,7 +15,7 @@ class User(Document):
     email: EmailStr
     phone: Optional[str] = None
     password_hash: str
-    role: UserRole = UserRole.citizen
+    role: UserRole = UserRole.user
     reports_submitted: int = 0
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)

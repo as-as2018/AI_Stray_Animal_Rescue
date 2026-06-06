@@ -1,33 +1,7 @@
 import logging
 from app.models.report import UrgencyTier
-from app.models.rule import RuleTier
 
 logger = logging.getLogger(__name__)
-
-RULE_ENGINE = {}
-TIERS = ["MONITOR", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
-TIER_CONDITIONS = {}
-
-async def refresh_rule_engine():
-    global RULE_ENGINE, TIERS, TIER_CONDITIONS
-    try:
-        tiers = await RuleTier.find_all().to_list()
-        if tiers:
-            TIERS = [t.tier_name for t in tiers]
-            new_engine = {}
-            new_tier_conds = {}
-            for t in tiers:
-                new_tier_conds[t.tier_name] = [cond.lower().replace(" ", "_") for cond in t.conditions]
-                for cond in t.conditions:
-                    new_engine[cond.lower().replace(" ", "_")] = t.base_score
-            RULE_ENGINE = new_engine
-            TIER_CONDITIONS = new_tier_conds
-            logger.info(f"Rule Engine refreshed successfully. Loaded {len(RULE_ENGINE)} conditions across {len(TIERS)} tiers.")
-    except Exception as e:
-        logger.error(f"Failed to refresh rule engine: {e}")
-
-def get_conditions_for_tier(tier_name: str) -> list:
-    return TIER_CONDITIONS.get(tier_name.upper(), [])
 
 def get_injury_class(injury_type: str) -> int:
     injury_upper = injury_type.upper()
@@ -35,13 +9,6 @@ def get_injury_class(injury_type: str) -> int:
     if injury_upper == "HIGH": return 3
     if injury_upper == "MEDIUM": return 2
     if injury_upper == "LOW": return 1
-    if injury_upper == "MONITOR": return 0
-
-    base = RULE_ENGINE.get(injury_type.lower(), 50)
-    if base >= 100: return 4
-    if base >= 75: return 3
-    if base >= 50: return 2
-    if base >= 25: return 1
     return 0
 
 def compute_urgency_score(
@@ -59,8 +26,7 @@ def compute_urgency_score(
     elif injury_upper == "HIGH": base = 75
     elif injury_upper == "MEDIUM": base = 50
     elif injury_upper == "LOW": base = 25
-    elif injury_upper == "MONITOR": base = 0
-    else: base = RULE_ENGINE.get(injury_type.lower(), 50) # default to Medium
+    else: base = 0
 
     # Weighted confidence factor: injury confidence matters more
     confidence_factor = (ai_confidence * 0.7) + (detection_confidence * 0.3)

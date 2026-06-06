@@ -47,13 +47,15 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     return user
 
 
+from app.models.user import User, UserRole
+
 async def require_ngo_or_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in ("ngo_admin", "super_admin"):
+    if current_user.role not in (UserRole.admin, UserRole.ngo):
         raise HTTPException(status_code=403, detail="NGO/Admin access required")
     return current_user
 
 
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != "super_admin":
+    if current_user.role != UserRole.admin:
         raise HTTPException(status_code=403, detail="Super admin access required")
     return current_user

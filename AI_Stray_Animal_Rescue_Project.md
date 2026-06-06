@@ -34,8 +34,8 @@ This platform introduces a **centralized, AI-driven web-based rescue management 
 |---|---|---|
 | Frontend | React.js + Vite | Citizen reporting UI + NGO dashboard |
 | Backend API | Python (FastAPI) | REST API + synchronous ML inference |
-| AI / ML Engine | PyTorch + Ultralytics YOLOv8 | Object detection & classification |
-| Image Pre-processing | OpenCV, Pillow | Image normalization, EXIF extraction |
+| AI / ML Engine | PyTorch + HuggingFace Transformers | Zero-shot visual extraction & text classification |
+| Image Pre-processing | Pillow | Image normalization, manipulation |
 | Database | MongoDB Atlas | Reports, users, NGO records |
 | ODM | Beanie (async MongoDB ODM) | Pydantic-based async MongoDB models |
 | Storage | Cloudinary | Image upload, storage, CDN delivery |
@@ -83,124 +83,63 @@ This platform introduces a **centralized, AI-driven web-based rescue management 
 
 ---
 
-### 3.2 Model B — Health Condition / Injury Assessment
+#### Synthetic RLHF Dataset
+- **Source:** Generated programmatically
+- **Size:** Base 50 examples, expanding via Human Feedback
+- **Classes:** 5 Urgency Tiers
+- **Annotations:** Text → Severity mapping
+- **Use:** Fine-tune custom BERT model
 
-#### Primary Dataset: Roboflow — Injured Animal Detector
-- **Source:** Roboflow Universe — "injured-animal-detector" (Updated 2024)
-- **Size:** ~1,800 images
-- **Classes:** `healthy`, `injured`, `severely_injured`, `dead`
-- **Annotations:** Classification labels + bounding boxes for wound regions
-- **Download:** [https://universe.roboflow.com/](https://universe.roboflow.com/)
+#### Combined Dataset Summary
 
-#### Secondary Dataset: Kaggle — Animal Wound & Skin Condition
-- **Source:** Kaggle — "Animal Wound and Skin Condition Dataset"
-- **Size:** ~2,200 images | Classes: `normal`, `wound`, `skin_disease`, `fracture_suspected`
-- **Use:** Supplement injury classifier with diverse wound types
-
-#### Custom Data Collection Plan
-- Partner with 2–3 local NGOs to collect labeled real-world images
-- Target: **300+ images per class** over 2 months
-- Labeling Tool: **Label Studio** (free, open-source, self-hosted on localhost)
-- Annotation by: 1 veterinarian + 1 AI engineer, agreement > 0.80 (Cohen's Kappa)
-
-#### Combined Injury Dataset Summary
-
-| Source | Images | Classes | Task |
-|---|---|---|---|
-| Roboflow Injured Animal | ~1,800 | 4 severity levels | Injury detection |
-| Kaggle Wound Dataset | ~2,200 | 4 wound types | Wound type detection |
-| NGO Custom Data | ~1,500 (target) | 5-tier severity | Domain fine-tuning |
-| **Total** | **~5,500** | **5 classes** | **Injury Triage** |
+| Source | Tasks |
+|---|---|
+| Synthetic Tier Database | Tier Classification |
+| NGO RLHF Corrections | Continuous Learning |
 
 ---
 
 ## 4. AI / ML MODELS
 
-### 4.1 Model A: Animal Species Detection — YOLOv8m
+### 4.1 Model A: Vision-Language Agent — Moondream2
 
-**Architecture:** YOLOv8 Medium (`yolov8m.pt`) by Ultralytics
+**Architecture:** Moondream2 (1.8B Parameter VLM)
 
 | Property | Value |
 |---|---|
-| Framework | PyTorch (via Ultralytics library) |
-| Pretrained Weights | COCO 2017 (80 classes, 330K images) |
-| Fine-tuned On | Oxford-IIIT Pets + Roboflow Stray + Open Images subset |
-| Input Size | 640 × 640 px (auto-letterboxed) |
-| Output | Bounding boxes + class labels + confidence scores |
-| Inference Speed (CPU) | ~180–250 ms/image on college server CPU |
-| Expected mAP@0.5 | ~0.87 (after fine-tuning) |
-| Parameters | 25.9M |
+| Framework | PyTorch (HuggingFace Transformers) |
+| Pretrained Weights | Moondream2 (vikhyatk/moondream2) |
+| Function | Zero-shot visual question answering & dense captioning |
+| Input Size | Any image resolution |
+| Output | Natural language description of species, posture, and visible injuries |
+| Inference Speed | ~1-2 seconds on CPU |
+| Parameters | 1.8B |
 
-**Why YOLOv8m?**
-- Best speed-accuracy trade-off for CPU-based synchronous inference
-- Simple `model.predict()` API — easy to integrate with FastAPI
-- Ships with Ultralytics: `pip install ultralytics` — no complex setup
-- Actively maintained, excellent documentation for students
-
-**Training Configuration:**
-```yaml
-# yolov8_species_train.yaml
-model: yolov8m.pt
-data: stray_animals.yaml
-epochs: 80
-imgsz: 640
-batch: 16
-optimizer: AdamW
-lr0: 0.001
-lrf: 0.01
-weight_decay: 0.0005
-augment: true        # Mosaic, MixUp, Albumentations
-patience: 15         # Early stopping
-device: cpu          # or cuda:0 if GPU available on Colab
-```
-
-**Free Training Platform:** Google Colab (T4 GPU, free tier)
+**Why Moondream2?**
+- Eliminates the need for traditional bounding-box datasets
+- Can extract highly nuanced, semantic descriptions (e.g., "limping", "visible distress")
+- Acts as the "Eyes" of the pipeline, providing raw textual data for downstream processing.
 
 ---
 
-### 4.2 Model B: Injury Severity Classification — EfficientNetV2-S
+### 4.2 Model B: Custom Injury Tier Classifier (RLHF Fine-Tuned BERT)
 
-**Architecture:** EfficientNetV2-Small (`tf_efficientnetv2_s` via `timm`)
+**Architecture:** Fine-Tuned BERT (`prajjwal1/bert-tiny` core)
 
 | Property | Value |
 |---|---|
-| Framework | PyTorch + `timm` library |
-| Pretrained Weights | ImageNet-21k (14M images, 21,841 classes) |
-| Fine-tuned On | Injured Animal Dataset (Roboflow + Kaggle + custom) |
-| Input Size | 384 × 384 px |
-| Output | Softmax probabilities over 5 severity classes |
-| Inference Speed (CPU) | ~200–300 ms/image |
-| Expected Top-1 Accuracy | ~80% (5-class) |
-| Parameters | 21.5M |
+| Framework | PyTorch + HuggingFace `transformers` |
+| Training Method | Supervised Fine-Tuning + RLHF |
+| Input Data | Raw text output generated by Moondream2 |
+| Output | Softmax probabilities over 5 Urgency Tiers (MONITOR, LOW, MEDIUM, HIGH, CRITICAL) |
+| Inference Speed | ~50 ms (Lightning fast) |
+| Parameters | 4.4M |
 
-**Severity Classes (5-Tier System):**
-
-| Class | Label | Description |
-|---|---|---|
-| 0 | Healthy | No visible distress or injury |
-| 1 | Mild Distress | Limping, minor wound, scared |
-| 2 | Moderate Injury | Open wound, visible trauma, unable to run |
-| 3 | Severe Injury | Immobile, multiple wounds, bleeding |
-| 4 | Critical | Unresponsive, requires immediate life-saving care |
-
-**Why EfficientNetV2-S?**
-- Outperforms ResNet-50 on fine-grained classification tasks
-- ImageNet-21k pretraining provides rich injury/texture feature representations
-- Small enough (21.5M params) to run synchronously on a free Render.com server
-- Easy to fine-tune with `timm` in < 30 lines of PyTorch code
-
-**Training Configuration:**
-```python
-model_name    = "tf_efficientnetv2_s"
-pretrained    = True            # ImageNet-21k weights
-num_classes   = 5
-input_size    = 384
-batch_size    = 32
-optimizer     = AdamW(lr=3e-4, weight_decay=1e-4)
-scheduler     = CosineAnnealingLR(T_max=30)
-loss_fn       = FocalLoss(gamma=2.0)  # Handles class imbalance
-epochs        = 30
-```
+**The RLHF Pipeline (Reinforcement Learning from Human Feedback):**
+1. **Initial Training:** The model is initially fine-tuned on a synthetic dataset of medical descriptions mapped to specific urgency tiers.
+2. **Data Collection:** As citizens upload photos, Moondream's exact textual outputs are permanently stored in the `reports` database collection.
+3. **Admin Feedback:** If an NGO Admin manually corrects a report's Urgency Tier on the dashboard (e.g., changing LOW to MEDIUM), the system captures this correction as a Reward Signal, saving it to `rlhf_dataset.json`.
+4. **Continuous Learning:** The `train_tier_model.py` script can be re-run to fine-tune the BERT model specifically on the Admin's corrections, creating a self-improving loop!
 
 ---
 
@@ -215,7 +154,7 @@ User Uploads Image via React.js
            │
            ▼
   ┌─────────────────────┐
-  │  Image Pre-processor │  OpenCV: resize, normalize
+  │  Image Pre-processor │  Pillow
   │  + GPS from form    │  + store on Cloudinary
   └─────────┬───────────┘
             │
@@ -223,9 +162,9 @@ User Uploads Image via React.js
       │            │
       ▼            ▼
  ┌──────────┐  ┌──────────────────┐
- │ YOLOv8m  │  │ EfficientNetV2-S │
- │ (Species │  │ (Injury Severity)│
- │  Detect.)│  │                  │
+ │Moondream2│  │ Custom RLHF BERT │
+ │(Vision)  │  │ (Tier Predictor) │
+ │          │  │                  │
  └──────┬───┘  └────────┬─────────┘
         │               │
         └───────┬────────┘

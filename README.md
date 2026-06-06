@@ -143,11 +143,11 @@ Instead of bounding box heuristics, we use a deterministic rule engine to map sp
 | 🟠 **HIGH** | 75 | `deep_wound`, `severe_burn`, `large_open_wound`, etc. | Within 1 hour |
 | 🔴 **CRITICAL** | 100 | `fracture`, `heavy_bleeding`, `road_accident`, `hit_by_vehicle` | Dispatch immediately |
 
-### Agentic Two-Model Pipeline
+### Agentic Two-Model Pipeline with RLHF
 Because Small Vision-Language Models (like the 1.8B Moondream2) struggle with strict JSON formatting and exact keyword matching, this pipeline implements a highly robust dual-model architecture:
-- **Chain of Thought Prompting:** The Severity Tier table is injected directly into Moondream's prompt. This forces the vision AI to reason about the *Severity Level* first, dramatically improving the accuracy of its *Injury Description*.
-- **Zero-Shot NLP Extraction:** Instead of brittle `if-else` rules, a secondary NLP agent (`distilbert-mnli`) uses semantic mathematics to map Moondream's conversational output exactly to the database schema.
-- **Dynamic Confidence Scoring:** The secondary NLP agent computes a true mathematical probability (Confidence Score) for the injury and species extraction.
+- **Vision Agent (Moondream2):** A lightweight VLM extracts human-like semantic meaning from images and generates a detailed visual description of the animal.
+- **Custom Tier Classifier (RLHF BERT):** Instead of brittle `if-else` rules or zero-shot inference, a custom fine-tuned BERT model (`bert-tiny`) reads Moondream's output and predicts the Urgency Tier (Healthy → Critical). 
+- **Reinforcement Learning from Human Feedback (RLHF):** The system features a self-improving data loop. Every manual correction made by an NGO Admin on the dashboard is saved as a reward signal, allowing the custom BERT model to continuously learn and align with real-world veterinary triage standards.
 - **Species Detection:** The NLP agent automatically classifies the animal species natively from Moondream's text, completely eliminating the need for a separate YOLO object-detection model.
 
 ### Urgency Score Formula
@@ -181,7 +181,7 @@ These versions are pinned in `requirements.txt` to avoid known conflicts:
 | `pymongo` | `==4.7.3` | motor 3.3.2 breaks with pymongo 4.9+ |
 | `pydantic` | `[email]==2.6.0` | includes `email-validator` |
 | `bcrypt` | `==4.0.1` | passlib breaks with bcrypt 4.1+ |
-| `numpy` | `<2` | torch 2.2.0 compiled against NumPy 1.x |
+| `transformers` | `>=4.30` | Needed for Moondream and BERT |
 
 ---
 

@@ -10,8 +10,6 @@ from PIL import Image
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
-from app.services.urgency_score import RULE_ENGINE
-
 logger = logging.getLogger(__name__)
 
 # ─── Lazy-loaded model singletons ─────────────────────────────────────────────
@@ -41,12 +39,14 @@ def load_moondream():
     return _moondream_model, _moondream_tokenizer
 
 _nlp_classifier = None
+_tier_classifier = None
 
 def load_nlp_classifier():
     global _nlp_classifier
     if _nlp_classifier is None:
         try:
-            logger.info("Loading secondary NLP Zero-Shot Classifier...")
+            from transformers import pipeline
+            logger.info("Loading Zero-Shot NLP Classifier for species...")
             _nlp_classifier = pipeline(
                 "zero-shot-classification",
                 model="typeform/distilbert-base-uncased-mnli",
@@ -56,37 +56,41 @@ def load_nlp_classifier():
             logger.error(f"NLP load error: {e}")
     return _nlp_classifier
 
+def load_tier_classifier():
+    global _tier_classifier
+    if _tier_classifier is None:
+        try:
+            from transformers import pipeline
+            import os
+            model_path = os.path.join(os.path.dirname(__file__), '..', '..', 'custome_model', 'saved_model')
+            if os.path.exists(model_path):
+                logger.info("Loading Custom RLHF Tier Predictor...")
+                _tier_classifier = pipeline(
+                    "text-classification",
+                    model=model_path,
+                    device=0 if _device.type == "cuda" else -1
+                )
+        except Exception as e:
+            logger.error(f"Custom Tier model load error: {e}")
+    return _tier_classifier
+
 def run_moondream_pipeline(image_bytes: bytes) -> dict:
     model, tokenizer = load_moondream()
     if model is None:
-        return {"species": "unknown", "breed_estimate": "N/A", "detection_confidence": 0.0, "bounding_box": None, "injury_class": 0, "injury_label": "Healthy", "ai_confidence": 0.95}
+        return {"species": "unknown", "breed_estimate": "N/A", "detection_confidence": 0.0, "bounding_box": None, "injury_class": 0, "injury_label": "Healthy", "ai_confidence": 0.95, "moondream_text": ""}
 
     try:
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         prompt = """
-You are a veterinary injury assessment assistant.
+You are an expert veterinary triage assistant.
 
-Analyze the image carefully.
+Analyze the image carefully and generate a dense descriptive paragraph.
+Describe:
+1. The animal species (e.g. dog, cat, cow, bird).
+2. Its posture or activity (e.g. resting, unable to stand, lying down).
+3. Any visible physical injuries, bleeding, wounds, fractures, or signs of distress.
 
-Tasks:
-1. Identify the animal species (dog, cat, cow, bird, etc).
-2. Categorize the severity level according to this table:
-   - MONITOR: healthy, old scar, resting animal, no visible injury
-   - LOW: minor skin disease, small wound, mild limping
-   - MEDIUM: moderate wound, eye infection, unable to use one leg
-   - HIGH: deep wound, severe burn, large open wound
-   - CRITICAL: fracture, heavy bleeding, road accident, hit by vehicle
-3. Describe the specific injury in 1 or 2 words based on the level above (e.g. "healthy", "small wound", "fracture").
-4. Return ONLY valid JSON.
-
-Output JSON format:
-{
-  "animal_species": "",
-  "severity_level": "MONITOR, LOW, MEDIUM, HIGH, or CRITICAL",
-  "injury_types": "healthy or brief injury description"
-}
-
-Return JSON only. Do not return explanations.
+Do NOT use JSON. Write a highly detailed paragraph.
 """
 
         enc_image = model.encode_image(image)
@@ -94,132 +98,36 @@ Return JSON only. Do not return explanations.
         
         print(f"\n=========================================\nMOONDREAM RAW OUTPUT: {text}\n=========================================\n")
         
-        # Pull valid injuries directly from the master Rule Engine so they never go out of sync
-        valid_injuries = list(RULE_ENGINE.keys())
+        # PIPELINE STEP 2: Custom RLHF Tier Classifier
+        tier_classifier = load_tier_classifier()
+        injury_type = "MONITOR"
+        confidence = 0.85
         
-        text_cleaned = text.strip()
-        if text_cleaned.startswith("```json"):
-            text_cleaned = text_cleaned[7:]
-        elif text_cleaned.startswith("```"):
-            text_cleaned = text_cleaned[3:]
-        if text_cleaned.endswith("```"):
-            text_cleaned = text_cleaned[:-3]
-        text_cleaned = text_cleaned.strip()
+        if tier_classifier is not None:
+            tier_result = tier_classifier(text)[0]
+            label_mapping = {"LABEL_0": "MONITOR", "LABEL_1": "LOW", "LABEL_2": "MEDIUM", "LABEL_3": "HIGH", "LABEL_4": "CRITICAL"}
+            injury_type = label_mapping.get(tier_result["label"], "MONITOR")
+            confidence = float(tier_result["score"])
+        else:
+            print("Custom Tier Classifier not found. Falling back to generic healthy.")
             
-        try:
-            res = json.loads(text_cleaned)
-            
-            # If the model double-encoded the JSON as a string
-            if isinstance(res, str):
-                try:
-                    res = json.loads(res)
-                except:
-                    pass
-                    
-            # If the model returned a list containing the object (like it tried to do in the last log)
-            if isinstance(res, list):
-                if len(res) > 0 and isinstance(res[0], dict):
-                    res = res[0]
-                else:
-                    res = {}
-                    
-            if not isinstance(res, dict):
-                res = {}
-                
-            injury_data = res.get("injury_types", "")
-            
-            # Handle comma-separated string by splitting it
-            if isinstance(injury_data, str):
-                injury_list = [i.strip() for i in injury_data.split(",")]
-            elif isinstance(injury_data, list):
-                injury_list = injury_data
-            else:
-                injury_list = []
-                
-            # Filter and normalize
-            normalized_list = [str(i).lower().replace(" ", "_").replace("-", "_") for i in injury_list]
-            matches = [inj for inj in normalized_list if inj in valid_injuries]
-            
-            if matches:
-                best_match = max(matches, key=lambda x: valid_injuries.index(x))
-                injury_type = best_match
-            else:
-                injury_type = "healthy"
-                
-            confidence = float(res.get("confidence", 0.85))
-        except Exception as parse_err:
-            print(f"JSON decode failed: {parse_err}. Booting secondary NLP Agent for Zero-Shot extraction...")
-            classifier = load_nlp_classifier()
-            
-            if classifier is not None:
-                # 1. NLP AI classifies the injury using Moondream's text
-                # Fix: Replace underscores with spaces so the NLP model understands the English words!
-                human_readable_injuries = [inj.replace("_", " ") for inj in valid_injuries]
-                human_readable_injuries.append("not enough information")
-                
-                injury_result = classifier(
-                    text, 
-                    human_readable_injuries, 
-                    multi_label=True, # Use independent scoring so it doesn't force a 100% sum!
-                    hypothesis_template="Based on the text, the animal's physical condition is {}."
-                )
-                
-                best_label = injury_result["labels"][0]
-                best_score = injury_result["scores"][0]
-                
-                if best_label == "not enough information":
-                    best_score = 0.0 # Force fallback if Moondream explicitly says it doesn't know
-                
-                if best_score > 0.45:
-                    injury_type = best_label.replace(" ", "_")
-                    confidence = float(best_score)
-                else:
-                    # ZERO-SHOT HIERARCHICAL FALLBACK
-                    # 1. First, classify the broad tier
-                    from app.services.urgency_score import TIERS, get_conditions_for_tier
-                    severity_result = classifier(
-                        text,
-                        TIERS,
-                        multi_label=False,
-                        hypothesis_template="The severity of this medical situation is {}."
-                    )
-                    best_tier = severity_result["labels"][0]
-                    
-                    # 2. Then, narrow down and classify the exact injury from ONLY that tier's conditions!
-                    tier_conditions = get_conditions_for_tier(best_tier)
-                    if tier_conditions:
-                        human_readable_tier_conds = [inj.replace("_", " ") for inj in tier_conditions]
-                        sub_result = classifier(
-                            text,
-                            human_readable_tier_conds,
-                            multi_label=True,
-                            hypothesis_template="Based on the text, the animal's physical condition is {}."
-                        )
-                        injury_type = sub_result["labels"][0].replace(" ", "_")
-                        confidence = float(sub_result["scores"][0])
-                    else:
-                        injury_type = best_tier
-                        confidence = float(severity_result["scores"][0])
-                
-                # 2. NLP AI classifies the animal species using Moondream's text
-                animal_candidates = ["lion", "tiger", "dog", "cat", "cow", "horse", "goat", "sheep", "monkey", "bird", "pig", "deer", "bear", "elephant", "none"]
-                species_result = classifier(
-                    text, 
-                    animal_candidates, 
-                    multi_label=False,
-                    hypothesis_template="The species of the animal is {}."
-                )
-                best_animal = species_result["labels"][0]
-                moondream_species = best_animal if best_animal != "none" and species_result["scores"][0] > 0.4 else None
-            else:
-                # Absolute last resort if the second AI fails to load
-                injury_type = "healthy"
-                confidence = 0.85
-                moondream_species = None
-        
-        print(f"EXTRACTED INJURY TYPE: {injury_type}")
+        # PIPELINE STEP 3: Zero-Shot Species Extraction
+        classifier = load_nlp_classifier()
+        moondream_species = None
+        if classifier is not None:
+            animal_candidates = ["lion", "tiger", "dog", "cat", "cow", "horse", "goat", "sheep", "monkey", "bird", "pig", "deer", "bear", "elephant", "none"]
+            species_result = classifier(
+                text, 
+                animal_candidates, 
+                multi_label=False,
+                hypothesis_template="The species of the animal is {}."
+            )
+            best_animal = species_result["labels"][0]
+            moondream_species = best_animal if best_animal != "none" and species_result["scores"][0] > 0.4 else None
+
+        print(f"EXTRACTED TIER (CUSTOM BERT): {injury_type}")
         if moondream_species:
-            print(f"EXTRACTED SPECIES (MOONDREAM): {moondream_species}")
+            print(f"EXTRACTED SPECIES (DISTILBERT): {moondream_species}")
         
         final_species = moondream_species if moondream_species else "unknown"
         return {
@@ -227,9 +135,10 @@ Return JSON only. Do not return explanations.
             "breed_estimate": f"Unknown {final_species.capitalize()} breed" if final_species != "unknown" else "N/A",
             "detection_confidence": confidence,
             "bounding_box": None,
-            "injury_class": 0, # This will be recalculated by the Rule Engine in reports.py or urgency_score
+            "injury_class": 0, # Recalculated dynamically later
             "injury_label": injury_type,
-            "ai_confidence": confidence
+            "ai_confidence": confidence,
+            "moondream_text": text
         }
     except Exception as e:
         logger.error(f"Moondream inference error: {e}")

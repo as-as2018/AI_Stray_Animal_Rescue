@@ -1,0 +1,202 @@
+[
+    {
+        "text": "The image shows a white dog resting on the street. It appears completely healthy and shows no signs of injury or distress.",
+        "label": 0
+    },
+    {
+        "text": "A brown cat is sitting on a wall. It looks well-fed and healthy. There are no visible wounds.",
+        "label": 0
+    },
+    {
+        "text": "The cow is standing peacefully. It has an old scar on its side but is not bleeding. No urgent care needed.",
+        "label": 0
+    },
+    {
+        "text": "A monkey is eating a banana. It has a minor patch of missing hair but otherwise looks fine.",
+        "label": 0
+    },
+    {
+        "text": "The dog is sleeping in the shade. No visible injuries. Condition is stable.",
+        "label": 0
+    },
+    {
+        "text": "A black crow is perched on a wire. It appears to be resting and in good health.",
+        "label": 0
+    },
+    {
+        "text": "The cat is grooming itself. No signs of infection or trauma.",
+        "label": 0
+    },
+    {
+        "text": "A healthy-looking stray dog walking normally down the pavement.",
+        "label": 0
+    },
+    {
+        "text": "The cow is eating grass. It has no physical deformities or wounds.",
+        "label": 0
+    },
+    {
+        "text": "A monkey jumping between trees, highly active, no injuries detected.",
+        "label": 0
+    },
+    {
+        "text": "The dog has a small wound on its paw. It is slightly limping but can still walk. It appears to be in a low severity category.",
+        "label": 1
+    },
+    {
+        "text": "A cat with a minor skin disease or mild rash on its back. Not bleeding, but looks uncomfortable.",
+        "label": 1
+    },
+    {
+        "text": "The cow has a small cut near its hoof. Mild distress is visible.",
+        "label": 1
+    },
+    {
+        "text": "There is a monkey with a superficial scratch on its arm.",
+        "label": 1
+    },
+    {
+        "text": "A stray dog with minor hair loss and a small scab on its ear.",
+        "label": 1
+    },
+    {
+        "text": "The bird has a slightly bent feather and is hopping, but doesn't seem critically injured.",
+        "label": 1
+    },
+    {
+        "text": "The image shows a white cat with a visible injury on its head. The cat appears to be in a low severity category, as it is resting and not showing any signs of distress or pain. The injury is described as a small wound, but it is not clear if it is a burn or a cut.",
+        "label": 1
+    },
+    {
+        "text": "A dog with a mild limp in its front right leg.",
+        "label": 1
+    },
+    {
+        "text": "A cow looking slightly undernourished with a small abrasion.",
+        "label": 1
+    },
+    {
+        "text": "A cat with a minor scrape on its nose.",
+        "label": 1
+    },
+    {
+        "text": "The dog has a moderate open wound on its side. It is unable to use one leg properly.",
+        "label": 2
+    },
+    {
+        "text": "A cat suffering from a severe eye infection. There is heavy discharge and it cannot open its left eye.",
+        "label": 2
+    },
+    {
+        "text": "The cow has a moderately large cut that seems infected. It looks distressed and is lying down.",
+        "label": 2
+    },
+    {
+        "text": "A monkey with a visibly broken finger and some bleeding.",
+        "label": 2
+    },
+    {
+        "text": "The stray dog has a significant skin infection covering a large part of its body.",
+        "label": 2
+    },
+    {
+        "text": "A cat is crying and holding its paw up, unable to walk on it.",
+        "label": 2
+    },
+    {
+        "text": "A bird with a damaged wing, unable to fly but still able to walk.",
+        "label": 2
+    },
+    {
+        "text": "The dog has a medium-sized laceration on its back.",
+        "label": 2
+    },
+    {
+        "text": "A cow with an infected swelling on its neck.",
+        "label": 2
+    },
+    {
+        "text": "A cat with a moderate burn on its tail.",
+        "label": 2
+    },
+    {
+        "text": "The dog has a large, deep open wound on its torso. It is bleeding heavily.",
+        "label": 3
+    },
+    {
+        "text": "A cat has suffered a severe burn covering half of its body. It is in visible agony.",
+        "label": 3
+    },
+    {
+        "text": "The cow has a deep gash on its leg, possibly from barbed wire, with significant tissue exposure.",
+        "label": 3
+    },
+    {
+        "text": "A monkey with a crushed limb, bleeding moderately.",
+        "label": 3
+    },
+    {
+        "text": "The stray dog is lying on the road with an exposed bone fracture in its hind leg.",
+        "label": 3
+    },
+    {
+        "text": "A dog with a massive open maggot wound on its head.",
+        "label": 3
+    },
+    {
+        "text": "The cat's leg is completely mangled and bleeding profusely.",
+        "label": 3
+    },
+    {
+        "text": "A cow with a large tear in its abdomen.",
+        "label": 3
+    },
+    {
+        "text": "The bird has a completely severed wing.",
+        "label": 3
+    },
+    {
+        "text": "A dog with a severe, deep puncture wound that is actively bleeding.",
+        "label": 3
+    },
+    {
+        "text": "The dog has just been hit by a vehicle. It is lying motionless on the road in a pool of blood.",
+        "label": 4
+    },
+    {
+        "text": "A cat is unconscious and breathing very heavily after a severe trauma.",
+        "label": 4
+    },
+    {
+        "text": "The cow has collapsed on the highway after a road accident. It is bleeding out rapidly.",
+        "label": 4
+    },
+    {
+        "text": "A monkey is unresponsive with a massive head injury.",
+        "label": 4
+    },
+    {
+        "text": "The stray dog has multiple severe fractures and is completely paralyzed.",
+        "label": 4
+    },
+    {
+        "text": "A massive hemorrhage on a dog hit by a car, it is not moving.",
+        "label": 4
+    },
+    {
+        "text": "A cat lying in a pool of blood, unconscious, appearing dead or dying.",
+        "label": 4
+    },
+    {
+        "text": "The cow has its intestines exposed after a violent collision.",
+        "label": 4
+    },
+    {
+        "text": "A bird that has been crushed and is barely breathing.",
+        "label": 4
+    },
+    {
+        "text": "A dog that is completely unresponsive and bleeding out from the neck.",
+        "label": 4
+    }
+]

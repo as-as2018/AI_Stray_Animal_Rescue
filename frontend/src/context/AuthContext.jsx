@@ -11,7 +11,9 @@ export function AuthProvider({ children }) {
         const token = localStorage.getItem('token');
         const stored = localStorage.getItem('user');
         if (token && stored) {
-            setUser(JSON.parse(stored));
+            const parsedUser = JSON.parse(stored);
+            parsedUser.role = Number(parsedUser.role);
+            setUser(parsedUser);
         }
         setLoading(false);
     }, []);
@@ -19,16 +21,16 @@ export function AuthProvider({ children }) {
     const login = async (email, password) => {
         const { data } = await API.post('/auth/login', { email, password });
         localStorage.setItem('token', data.access_token);
-        const u = { id: data.user_id, name: data.name, role: data.role };
+        const u = { id: data.user_id, name: data.name, role: Number(data.role) };
         localStorage.setItem('user', JSON.stringify(u));
         setUser(u);
         return u;
     };
 
-    const register = async (name, email, password, phone) => {
-        const { data } = await API.post('/auth/register', { name, email, password, phone });
+    const register = async (name, email, password, phone, is_ngo = false) => {
+        const { data } = await API.post('/auth/register', { name, email, password, phone, is_ngo });
         localStorage.setItem('token', data.access_token);
-        const u = { id: data.user_id, name: data.name, role: data.role };
+        const u = { id: data.user_id, name: data.name, role: Number(data.role) };
         localStorage.setItem('user', JSON.stringify(u));
         setUser(u);
         return u;

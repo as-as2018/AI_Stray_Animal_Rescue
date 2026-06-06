@@ -7,19 +7,35 @@ from fastapi import Depends
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
 
+from app.models.ngo import NGO
+
 @router.post("/register", response_model=TokenResponse, status_code=201)
 async def register(data: RegisterRequest):
     existing = await User.find_one(User.email == data.email)
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
+    
+    assigned_role = UserRole.ngo if data.is_ngo else UserRole.user
+    
     user = User(
         name=data.name,
         email=data.email,
         phone=data.phone,
         password_hash=hash_password(data.password),
-        role=UserRole.citizen,
+        role=assigned_role,
     )
     await user.insert()
+    
+    if data.is_ngo:
+        ngo_stub = NGO(
+            name=f"{data.name} NGO",
+            city="Pending",
+            contact_email=data.email,
+            contact_phone=data.phone,
+            is_active=False
+        )
+        await ngo_stub.insert()
+
     token = create_access_token({"sub": str(user.id)})
     return TokenResponse(access_token=token, user_id=str(user.id), name=user.name, role=user.role)
 

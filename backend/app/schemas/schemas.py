@@ -9,6 +9,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     phone: Optional[str] = None
+    is_ngo: bool = False
 
 
 class LoginRequest(BaseModel):
@@ -41,6 +42,7 @@ class AIAnalysisResult(BaseModel):
     injury_class: int
     injury_label: str
     ai_confidence: float
+    moondream_text: Optional[str] = None
     is_juvenile: bool
     inference_time_ms: int
 
@@ -62,6 +64,7 @@ class ReportListItem(BaseModel):
     urgency_tier: str
     species: Optional[str]
     injury_label: Optional[str]
+    user_injury_label: Optional[str] = None
     image_url: str
     thumbnail_url: Optional[str]
     latitude: Optional[float]
