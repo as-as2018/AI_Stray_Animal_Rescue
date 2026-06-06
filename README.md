@@ -246,6 +246,18 @@ This enables **weighted loss training**, per-annotator trust scoring, data prove
 | **Phase 3** | EfficientNet-B3 | Image only | No Moondream needed | 🔵 Planned |
 | **Phase 4** | Species-Expert CNNs | Routed by species | Specialist accuracy | 🔵 Long-term |
 
+### Tiered RLHF Trust System — Citizen vs. Expert Feedback
+
+Citizens can override the AI tier at report submission. This signal is **deliberately excluded** from current RLHF training to prevent data poisoning and emotional over-reporting from untrained users — the same principle used by OpenAI for ChatGPT.
+
+The proposed upgrade introduces **weighted cross-entropy loss** so citizen feedback can contribute without overriding expert knowledge:
+
+| Source | Trust Weight | Rationale |
+|---|---|---|
+| NGO Admin Correction | `1.0` | Trained professional, vetted |
+| Citizen Majority Vote (3+) | `0.6` | Crowd consensus |
+| Single Citizen Override | `0.3` | Layperson, unverified |
+
 ---
 
 ## 🌐 Free Deployment

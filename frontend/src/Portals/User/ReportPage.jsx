@@ -152,7 +152,7 @@ export default function ReportPage() {
                             <div style={{ padding: '12px 16px', background: 'rgba(99,102,241,0.1)', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', marginBottom: 20 }}>
                                 <span style={{ fontSize: 18, marginRight: 8 }}>🤖</span>
                                 <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--primary)' }}>
-                                    The AI has generated a description and estimated the urgency. Please verify and correct any mistakes.
+                                    AI has analysed the image. You may correct the description if needed — the urgency level is determined by trained experts.
                                 </span>
                             </div>
                         )}
@@ -165,22 +165,7 @@ export default function ReportPage() {
                                 disabled={!aiResult} />
                         </div>
 
-                        {aiResult && (
-                            <div className="form-group">
-                                <label className="label">AI Predicted Urgency (Correct if wrong)</label>
-                                <select 
-                                    className="input" 
-                                    value={form.user_injury_label} 
-                                    onChange={(e) => setForm({...form, user_injury_label: e.target.value})}
-                                >
-                                    <option value="CRITICAL">CRITICAL</option>
-                                    <option value="HIGH">HIGH</option>
-                                    <option value="MEDIUM">MEDIUM</option>
-                                    <option value="LOW">LOW</option>
-                                    <option value="MONITOR">MONITOR</option>
-                                </select>
-                            </div>
-                        )}
+
                         <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: !aiResult ? 'not-allowed' : 'pointer', fontSize: 14 }}>
                             <input type="checkbox" checked={form.is_juvenile}
                                 onChange={(e) => setForm({ ...form, is_juvenile: e.target.checked })}

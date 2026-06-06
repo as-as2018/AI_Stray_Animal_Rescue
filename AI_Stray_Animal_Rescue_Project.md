@@ -749,6 +749,91 @@ Phase 4 — Advanced (Species-Specific Expert Models)
 
 ---
 
+## 14.4 Tiered RLHF Trust System — Citizen vs. Expert Feedback
+
+### The Problem: Why Citizen Tier Overrides Are Not Used Currently
+
+When a citizen submits a report, they can manually override the AI-predicted urgency tier before submitting. This is a valuable feedback signal — but it is **deliberately excluded** from the current RLHF training pipeline for three reasons:
+
+| Risk | Explanation |
+|---|---|
+| **Emotional Over-Reporting** | Citizens who find an injured animal feel distress and tend to label everything `CRITICAL`. The AI would learn the wrong signal. |
+| **Data Poisoning** | Any bad actor can create an account, submit fake reports with deliberately wrong labels, and corrupt the model. |
+| **Annotation Noise** | An NGO Admin sees hundreds of cases and calibrates their judgment. A citizen sees 1–2 cases in a lifetime. Their label is a *feeling*, not an *expert assessment*. |
+
+This is identical to the design of systems like ChatGPT — OpenAI uses **trained, vetted human annotators** for RLHF, not random users.
+
+### The Solution: Tiered Trust Weights
+
+Citizen feedback is genuinely valuable data but needs a **trust weight** applied during training so it cannot override expert knowledge:
+
+```
+RLHF Data Sources (Tiered by Trust):
+
+  Tier 1 — NGO Admin Correction    →  trust_weight = 1.0  (expert, verified)
+  Tier 2 — Citizen Override        →  trust_weight = 0.3  (layperson, unverified)
+  Tier 3 — Citizen Majority Vote   →  trust_weight = 0.6  (if 3+ citizens agree)
+```
+
+The enriched dataset record would include a `trust_weight` and `annotator_role` field:
+
+```json
+{
+  "image_url": "https://res.cloudinary.com/.../dog_wound.jpg",
+  "text": "A dog with a visible open wound on its back leg, unable to stand...",
+  "label": 4,
+  "animal": "dog",
+  "source": "citizen_override",
+  "corrected_from": 2,
+  "annotator_role": "citizen",
+  "trust_weight": 0.3,
+  "timestamp": "2026-06-06T14:30:00Z"
+}
+```
+
+During training, the loss function is weighted — expert corrections influence model weights 3× more than citizen guesses:
+
+```python
+# Weighted Cross-Entropy Loss
+loss = F.cross_entropy(logits, labels, reduction='none')
+weighted_loss = (loss * trust_weights).mean()
+```
+
+### Data Flow Diagram
+
+```
+Citizen submits report
+        │
+        ├── AI predicts tier (e.g. HIGH)
+        │
+        ├── Citizen overrides to CRITICAL
+        │            │
+        │            ▼
+        │    Saved to dataset:
+        │    source: "citizen_override"
+        │    trust_weight: 0.3     ← low influence
+        │
+        └── NGO Admin reviews and confirms CRITICAL
+                     │
+                     ▼
+             Saved to dataset:
+             source: "admin_correction"
+             trust_weight: 1.0     ← full influence
+
+Retrain: weighted loss ensures expert opinions dominate
+```
+
+### Implementation Status
+
+| Component | Status |
+|---|---|
+| NGO Admin corrections → `rlhf_dataset.json` | ✅ Implemented |
+| Citizen tier overrides → `rlhf_dataset.json` | 🔵 Proposed |
+| Weighted loss training | 🔵 Proposed |
+| Per-annotator trust scoring | 🔵 Proposed |
+| Citizen majority-vote validation | 🔵 Proposed |
+
+
 ## 15. REFERENCES
 
 ### Datasets

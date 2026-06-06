@@ -264,7 +264,21 @@ The enriched dataset unlocks a clear progression from text-only to full multimod
 | **Phase 3** (Future) | EfficientNet-B3 | Raw image only (no text) | 🔵 Planned |
 | **Phase 4** (Advanced) | Species-Expert CNNs | Per-animal routed models | 🔵 Long-term |
 
-### 13.3 Other Future Features
+### 13.3 Tiered RLHF Trust System — Citizen vs. Expert Feedback
+
+Citizens can also override the AI-predicted urgency tier when submitting a report. This signal is **deliberately excluded** from the current RLHF pipeline to prevent data poisoning, emotional over-reporting, and annotation noise from untrained users — the same principle used by OpenAI for ChatGPT's RLHF (vetted annotators only).
+
+The **proposed** upgrade introduces a Tiered Trust System with weighted cross-entropy loss during training:
+
+| Source | Role | Trust Weight |
+|---|---|---|
+| NGO Admin Correction | Expert, verified | 1.0 |
+| Citizen Override | Layperson, unverified | 0.3 |
+| Citizen Majority Vote (3+) | Crowd consensus | 0.6 |
+
+This allows citizen feedback to contribute to training without being able to override expert knowledge, making the data pipeline more comprehensive while remaining scientifically rigorous.
+
+### 13.4 Other Future Features
 
 | Feature | Description |
 |---|---|

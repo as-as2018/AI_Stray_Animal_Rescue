@@ -109,7 +109,7 @@ export default function MyReports() {
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     {reports.map((r) => (
-                        <div key={r.id} className="card card-hover" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                        <div key={r.id} className="card card-hover" style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                             <img
                                 src={r.thumbnail_url || r.image_url}
                                 alt="Animal"
@@ -120,6 +120,9 @@ export default function MyReports() {
                                     <UrgencyBadge tier={r.urgency_tier} />
                                     <StatusBadge status={r.status} />
                                     <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-3)' }}>{r.report_id}</span>
+                                    <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 'auto' }}>
+                                        {new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    </span>
                                 </div>
                                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                                     <span style={{ fontSize: 14 }}>
@@ -127,23 +130,76 @@ export default function MyReports() {
                                     </span>
                                     <span style={{ fontSize: 14 }}>
                                         <span className="text-muted">Condition:</span>{' '}
-                                        <strong>{r.user_injury_label || r.injury_label || '—'}</strong>
-                                        {r.user_injury_label && r.user_injury_label !== r.injury_label && (
-                                            <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 6 }} title="AI Prediction">
-                                                (AI: {r.injury_label})
-                                            </span>
-                                        )}
+                                        <strong>{r.injury_label || '—'}</strong>
                                     </span>
                                     <span style={{ fontSize: 14 }}>
                                         <span className="text-muted">Score:</span> <strong style={{ color: '#6366f1' }}>{r.urgency_score}/100</strong>
                                     </span>
                                 </div>
                                 {r.address && <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 4 }}>📍 {r.address}</p>}
-                            </div>
-                            <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                                <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
-                                    {new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </div>
+
+                                {/* NGO Assignment Info */}
+                                {r.assigned_ngo_name ? (
+                                    <div style={{
+                                        marginTop: 10,
+                                        padding: '10px 14px',
+                                        background: r.status === 'resolved'
+                                            ? 'rgba(34,197,94,0.07)'
+                                            : r.status === 'in_progress'
+                                            ? 'rgba(99,102,241,0.07)'
+                                            : 'rgba(245,158,11,0.07)',
+                                        border: `1px solid ${r.status === 'resolved'
+                                            ? 'rgba(34,197,94,0.2)'
+                                            : r.status === 'in_progress'
+                                            ? 'rgba(99,102,241,0.2)'
+                                            : 'rgba(245,158,11,0.2)'}`,
+                                        borderRadius: 10,
+                                        display: 'flex',
+                                        flexWrap: 'wrap',
+                                        gap: '6px 20px',
+                                    }}>
+                                        <span style={{ fontSize: 13, fontWeight: 600 }}>
+                                            🏥 {r.assigned_ngo_name}
+                                        </span>
+                                        {r.assigned_ngo_email && (
+                                            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                                                ✉️ {r.assigned_ngo_email}
+                                            </span>
+                                        )}
+                                        {r.responder_name && (
+                                            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                                                👤 Responder: <strong>{r.responder_name}</strong>
+                                            </span>
+                                        )}
+                                        {r.assigned_at && (
+                                            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                                                🕐 Assigned: {new Date(r.assigned_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            </span>
+                                        )}
+                                        {r.resolved_at && (
+                                            <span style={{ fontSize: 12, color: 'var(--low)', fontWeight: 600 }}>
+                                                ✅ Resolved: {new Date(r.resolved_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            </span>
+                                        )}
+                                        {r.vet_notes && (
+                                            <span style={{ fontSize: 12, color: 'var(--text-2)', width: '100%' }}>
+                                                📋 Notes: {r.vet_notes}
+                                            </span>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div style={{
+                                        marginTop: 10,
+                                        padding: '8px 14px',
+                                        background: 'rgba(107,114,128,0.07)',
+                                        border: '1px solid rgba(107,114,128,0.15)',
+                                        borderRadius: 10,
+                                        fontSize: 13,
+                                        color: 'var(--text-3)',
+                                    }}>
+                                        ⏳ Awaiting NGO Assignment — our team will assign a rescue organization shortly.
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}
