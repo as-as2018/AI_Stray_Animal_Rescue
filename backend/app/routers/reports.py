@@ -203,15 +203,16 @@ async def analyze_image(
 
 @router.get("/dashboard")
 async def user_dashboard(current_user: User = Depends(get_current_user)):
-    query = Report.find(Report.user_id == str(current_user.id))
-    total = await query.count()
-    pending = await query.find({"status": {"$in": ["pending", "assigned"]}}).count()
-    in_progress = await query.find(Report.status == "in_progress").count()
-    resolved = await query.find(Report.status == "resolved").count()
+    uid = str(current_user.id)
+    total      = await Report.find(Report.user_id == uid).count()
+    pending    = await Report.find(Report.user_id == uid, Report.status == "pending").count()
+    assigned   = await Report.find(Report.user_id == uid, Report.status == "assigned").count()
+    in_progress = await Report.find(Report.user_id == uid, Report.status == "in_progress").count()
+    resolved   = await Report.find(Report.user_id == uid, Report.status == "resolved").count()
     
     return {
         "total": total,
-        "pending": pending,
+        "pending": pending + assigned,   # "Pending Assignment" = not yet being worked on
         "in_progress": in_progress,
         "resolved": resolved
     }
