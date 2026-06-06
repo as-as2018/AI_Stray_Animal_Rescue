@@ -148,7 +148,11 @@ Instead of bounding box heuristics, we use a deterministic rule engine to map sp
 Because Small Vision-Language Models (like the 1.8B Moondream2) struggle with strict JSON formatting and exact keyword matching, this pipeline implements a highly robust dual-model architecture:
 - **Vision Agent (Moondream2):** A lightweight VLM extracts human-like semantic meaning from images and generates a detailed visual description of the animal.
 - **Custom Tier Classifier (RLHF BERT):** Instead of brittle `if-else` rules or zero-shot inference, a custom fine-tuned BERT model (`bert-tiny`) reads Moondream's output and predicts the Urgency Tier (Healthy → Critical). 
-- **Reinforcement Learning from Human Feedback (RLHF):** The system features a self-improving data loop. Every manual correction made by an NGO Admin on the dashboard is saved as a reward signal, allowing the custom BERT model to continuously learn and align with real-world veterinary triage standards.
+- **Reinforcement Learning from Human Feedback (RLHF):** The system features a self-improving data loop bridging human veterinary expertise with AI. 
+  1. **Prediction:** The AI makes a tier prediction based on visual symptoms.
+  2. **Automatic Data Collection:** If an NGO Admin corrects the AI's tier prediction on the dashboard, the backend automatically pairs the original visual description with the human's preferred tier and saves it to `rlhf_dataset.json`.
+  3. **Scheduled Re-Training:** A developer runs the `train_tier_model.py` script offline, which fine-tunes the BERT model using Supervised Fine-Tuning, penalizing it for wrong answers and rewarding it for matching the NGO Admin's feedback.
+  4. **Deployment:** The newly trained model is deployed, permanently fixing those edge cases without new code!
 - **Species Detection:** The NLP agent automatically classifies the animal species natively from Moondream's text, completely eliminating the need for a separate YOLO object-detection model.
 
 ### Urgency Score Formula

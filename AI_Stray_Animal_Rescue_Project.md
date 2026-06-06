@@ -136,10 +136,12 @@ This platform introduces a **centralized, AI-driven web-based rescue management 
 | Parameters | 4.4M |
 
 **The RLHF Pipeline (Reinforcement Learning from Human Feedback):**
-1. **Initial Training:** The model is initially fine-tuned on a synthetic dataset of medical descriptions mapped to specific urgency tiers.
-2. **Data Collection:** As citizens upload photos, Moondream's exact textual outputs are permanently stored in the `reports` database collection.
-3. **Admin Feedback:** If an NGO Admin manually corrects a report's Urgency Tier on the dashboard (e.g., changing LOW to MEDIUM), the system captures this correction as a Reward Signal, saving it to `rlhf_dataset.json`.
-4. **Continuous Learning:** The `train_tier_model.py` script can be re-run to fine-tune the BERT model specifically on the Admin's corrections, creating a self-improving loop!
+In this platform, RLHF is the bridge between human veterinary expertise and artificial intelligence. While the data collection happens **automatically**, the actual training happens offline so the web server is not impacted. Here is exactly how it works:
+
+1. **The Pre-Trained AI Makes a Prediction:** When a citizen uploads a photo, the Vision Model (Moondream2) looks at the image and generates a text description (e.g., *"A brown street dog with a severe open wound..."*). That text is passed to the custom BERT model, which makes an initial Urgency Tier prediction (e.g., `HIGH`).
+2. **The Human Reward Signal (Automatic Data Collection):** An NGO Admin sees this report on their dashboard, realizes the injury is actually life-threatening, and manually corrects the tier from `HIGH` to `CRITICAL`. The moment they save this change, the backend automatically pairs the AI's original visual description with the Admin's corrected tier and logs it into `rlhf_dataset.json`. This acts as the "Human Feedback" or reward signal.
+3. **The Reinforcement Learning (Scheduled Re-Training):** Once the dataset has grown with hundreds of corrections, a developer or an automated script runs the `train_tier_model.py` script. The BERT model undergoes **Supervised Fine-Tuning based on Human Preferences**. It mathematically adjusts its internal weights, getting "penalized" for its old wrong answers and "rewarded" for matching the human's preferred answers.
+4. **The Result (A Smarter AI):** Once the new weights are saved and loaded into the live server, the AI becomes smarter. The next time a citizen uploads a photo with similar symptoms, the AI will confidently predict `CRITICAL` right out of the gate. By having humans "in the loop", the model trains itself over time, aligning with professional medical standards without requiring new code.
 
 ---
 
