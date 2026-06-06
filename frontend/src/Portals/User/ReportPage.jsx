@@ -204,7 +204,7 @@ export default function ReportPage() {
                 /* Result */
                 <div>
                     <div className="result-card mb-6">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
                             <div>
                                 <div style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Urgency Score</div>
                                 <div className="result-score" style={{ color: tierColor[result.urgency_tier] || '#fff' }}>
@@ -217,6 +217,16 @@ export default function ReportPage() {
                                 <div style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: 'var(--primary-hover)' }}>{result.report_id}</div>
                             </div>
                         </div>
+
+                        {(preview || result.image_url) && (
+                            <div style={{ marginBottom: 20, textAlign: 'center' }}>
+                                <img 
+                                    src={preview || result.image_url} 
+                                    alt="Reported Animal" 
+                                    style={{ maxWidth: '100%', maxHeight: 300, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} 
+                                />
+                            </div>
+                        )}
 
                         <div className="result-grid">
                             {[
