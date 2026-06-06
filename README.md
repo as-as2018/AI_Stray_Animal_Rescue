@@ -215,6 +215,39 @@ These versions are pinned in `requirements.txt` to avoid known conflicts:
 
 ---
 
+## 🔭 Proposed System Enhancements
+
+### Enriched Multimodal RLHF Dataset
+
+The current RLHF feedback loop stores text descriptions only. The proposed upgrade captures a richer multimodal record per correction:
+
+```json
+{
+  "image_url": "https://res.cloudinary.com/.../cat_injury.jpg",
+  "text": "A cat with a visible deep wound on its right leg...",
+  "label": 3,
+  "animal": "cat",
+  "confidence": 0.9,
+  "source": "admin_correction",
+  "corrected_from": 1,
+  "annotator_id": "ngo_admin_xyz",
+  "timestamp": "2026-06-06T14:30:00Z"
+}
+```
+
+This enables **weighted loss training**, per-annotator trust scoring, data provenance tracking, and species-specific model routing.
+
+### Phased AI Training Roadmap
+
+| Phase | Model | Input | Benefit | Status |
+|---|---|---|---|---|
+| **Phase 1** | `bert-tiny` | Text only | Fast, lightweight | ✅ Live |
+| **Phase 2** | CLIP / ViLBERT | Text + Image | AI sees the actual photo | 🔵 Planned |
+| **Phase 3** | EfficientNet-B3 | Image only | No Moondream needed | 🔵 Planned |
+| **Phase 4** | Species-Expert CNNs | Routed by species | Specialist accuracy | 🔵 Long-term |
+
+---
+
 ## 🌐 Free Deployment
 
 | Service | Platform |

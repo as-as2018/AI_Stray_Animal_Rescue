@@ -239,14 +239,42 @@ Three primary collections:
 
 ## 13. FUTURE SCOPE
 
-| Feature                 | Description                                                        |
-|-------------------------|--------------------------------------------------------------------|
-| Mobile Application      | React Native cross-platform app for easier field reporting         |
-| CCTV / Video Integration| Real-time stray animal detection from live camera feeds (Future Model)  |
-| LLM Case Summaries      | GPT-4V / Gemini Vision for natural language case descriptions      |
-| On-Device Inference     | TFLite models for offline reporting in low-connectivity areas      |
-| Heatmap Analytics       | GIS-based urban stray density visualization for city planners      |
-| Adoption Portal         | Match rescued and recovered animals with potential adopters        |
+### 13.1 Proposed: Enriched Multimodal RLHF Dataset
+
+The current RLHF dataset stores only the Moondream text description and human-corrected label. The **proposed upgrade** enriches every training sample into a full multimodal record, unlocking a new generation of AI training:
+
+| New Field | Purpose |
+|---|---|
+| `image_url` | Cloudinary URL — portable, downloads directly via HTTP during training |
+| `animal` | Species label — enables species-specific expert model training |
+| `confidence` | Annotator certainty (0.0–1.0) — enables weighted loss training |
+| `source` | `admin_correction` / `base_dataset` / `synthetic` — data provenance tracking |
+| `corrected_from` | AI's original prediction — the true RLHF delta signal |
+| `annotator_id` | Which NGO Admin made the correction — per-annotator trust scoring |
+| `timestamp` | When the correction was made — recency filtering and trend analysis |
+
+### 13.2 Proposed: Phased AI Training Roadmap
+
+The enriched dataset unlocks a clear progression from text-only to full multimodal intelligence:
+
+| Phase | Model | Input | Status |
+|---|---|---|---|
+| **Phase 1** (Current) | `bert-tiny` | Moondream text only | ✅ Live |
+| **Phase 2** (Proposed) | CLIP / ViLBERT | Text + Raw image | 🔵 Planned |
+| **Phase 3** (Future) | EfficientNet-B3 | Raw image only (no text) | 🔵 Planned |
+| **Phase 4** (Advanced) | Species-Expert CNNs | Per-animal routed models | 🔵 Long-term |
+
+### 13.3 Other Future Features
+
+| Feature | Description |
+|---|---|
+| Mobile Application | React Native cross-platform app for easier field reporting |
+| CCTV / Video Integration | Real-time stray animal detection from live camera feeds |
+| LLM Case Summaries | GPT-4V / Gemini Vision for natural language case descriptions |
+| On-Device Inference | TFLite models for offline reporting in low-connectivity areas |
+| Heatmap Analytics | GIS-based urban stray density visualization for city planners |
+| Adoption Portal | Match rescued and recovered animals with potential adopters |
+| Dataset Export Tool | Auto-query MongoDB and export enriched multimodal JSON |
 
 ---
 

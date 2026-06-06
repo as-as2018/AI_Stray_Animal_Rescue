@@ -672,14 +672,80 @@ API Docs     → http://localhost:8000/docs   (FastAPI Swagger UI)
 
 ## 14. FUTURE SCOPE
 
+### 14.1 Proposed: Enriched Multimodal RLHF Dataset
+
+Currently, the RLHF dataset only stores the Moondream text description and the human-corrected label. The proposed upgrade enriches every training sample to a **multimodal record**:
+
+```json
+[
+  {
+    "image_url": "https://res.cloudinary.com/.../cat_injury.jpg",
+    "text": "A cat with a visible deep wound on its right leg, limping and unable to stand...",
+    "label": 3,
+    "animal": "cat",
+    "confidence": 0.9,
+    "source": "admin_correction",
+    "corrected_from": 1,
+    "annotator_id": "ngo_admin_xyz",
+    "timestamp": "2026-06-06T14:30:00Z"
+  }
+]
+```
+
+| New Field | Purpose |
+|---|---|
+| `image_url` | Cloudinary URL — portable, no local storage needed. Training scripts download directly via HTTP |
+| `animal` | Species label — enables species-specific expert model training in future |
+| `confidence` | Annotator certainty (0.0–1.0) — enables **weighted loss** so uncertain corrections penalize less |
+| `source` | `admin_correction` / `base_dataset` / `synthetic` — track data provenance |
+| `corrected_from` | AI's original prediction — the true RLHF signal (the *delta* between AI and human) |
+| `annotator_id` | Which NGO Admin corrected it — enables per-annotator trust scoring |
+| `timestamp` | Correction time — enables filtering by recency, trend analysis |
+
+### 14.2 Proposed: Phased AI Training Roadmap
+
+The enriched dataset unlocks a clear progression from text-only to full multimodal intelligence:
+
+```
+Phase 1 — Current (Text-Only BERT)
+  Input  : Moondream text description
+  Output : Urgency Tier (0–4)
+  Model  : bert-tiny (4.4M params)
+  Status : ✅ LIVE
+
+Phase 2 — Proposed (Text + Image Multimodal)
+  Input  : Moondream text + Raw image (both together)
+  Output : Urgency Tier (0–4)
+  Model  : CLIP / ViLBERT / PaLI
+  Benefit: AI sees the actual photo, not just a description
+  Status : 🔵 Planned
+
+Phase 3 — Future (Pure Vision CNN)
+  Input  : Raw image only
+  Output : Urgency Tier directly from pixels
+  Model  : EfficientNet-B3 / ResNet50
+  Benefit: No Moondream dependency — 10x faster inference
+  Status : 🔵 Planned
+
+Phase 4 — Advanced (Species-Specific Expert Models)
+  Input  : Raw image, routed by detected species
+  Output : Species-specific urgency tier
+  Model  : Separate fine-tuned model per animal (dog, cat, cow, bird...)
+  Benefit: Each model masters the injury patterns of one species
+  Status : 🔵 Long-term
+```
+
+### 14.3 Other Future Features
+
 | Feature | Description |
 |---|---|
-| **Mobile App** | React Native version (post-college) |
+| **Mobile App** | React Native version for easier field reporting |
 | **CCTV Integration** | Real-time video feed analysis with YOLOv8 |
-| **LLM Integration** | GPT-4V / Gemini Vision for detailed case summaries |
+| **LLM Case Summaries** | GPT-4V / Gemini Vision for detailed case descriptions |
 | **Offline Mode** | On-device TFLite inference (no internet needed) |
-| **Heatmap Analytics** | Urban stray density visualization |
-| **Adoption Portal** | Rescued animals matched to adopters |
+| **Heatmap Analytics** | GIS-based urban stray density visualization |
+| **Adoption Portal** | Rescued animals matched to potential adopters |
+| **Dataset Export Tool** | Auto-query MongoDB and export enriched multimodal JSON |
 
 ---
 
