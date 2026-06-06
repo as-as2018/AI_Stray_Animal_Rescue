@@ -3,12 +3,14 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import toast from 'react-hot-toast';
 import API from '../../services/api';
+import ChangePasswordModal from '../../Shared/Components/ChangePasswordModal';
 
 export default function UserSettings() {
     const { user } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const [activeTab, setActiveTab] = useState('profile');
     const [loading, setLoading] = useState(false);
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
 
     // Profile State
     const [profile, setProfile] = useState({
@@ -119,7 +121,7 @@ export default function UserSettings() {
                                 
                                 <div style={{ marginTop: 30, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
                                     <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: 'var(--text-1)' }}>Security & Authentication</h3>
-                                    <button type="button" className="btn btn-outline" style={{ marginBottom: 20 }}>
+                                    <button type="button" className="btn btn-outline" style={{ marginBottom: 20 }} onClick={() => setShowPasswordModal(true)}>
                                         Change Password
                                     </button>
                                 </div>
@@ -186,6 +188,7 @@ export default function UserSettings() {
                     to { opacity: 1; transform: translateY(0); }
                 }
             `}</style>
+            {showPasswordModal && <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />}
         </div>
     );
 }

@@ -62,7 +62,16 @@ async def me(current_user: User = Depends(get_current_user)):
     )
 
 
-from app.schemas.schemas import UserUpdateRequest
+from app.schemas.schemas import UserUpdateRequest, ChangePasswordRequest
+
+@router.patch("/password")
+async def change_password(data: ChangePasswordRequest, current_user: User = Depends(get_current_user)):
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect current password")
+    
+    hashed_new = hash_password(data.new_password)
+    await current_user.set({User.password_hash: hashed_new})
+    return {"status": "success", "message": "Password updated successfully"}
 
 @router.patch("/me", response_model=UserResponse)
 async def update_me(data: UserUpdateRequest, current_user: User = Depends(get_current_user)):

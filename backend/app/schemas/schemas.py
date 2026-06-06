@@ -30,6 +30,10 @@ class UserUpdateRequest(BaseModel):
     phone: Optional[str] = None
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 class UserResponse(BaseModel):
     id: str
     name: str

@@ -22,7 +22,6 @@ export default function NGOLayout() {
     const ngoLinks = [
         { label: 'Dashboard', href: '/ngo', icon: '📊' },
         { label: 'Assigned Reports', href: '/ngo/reports', icon: '🚑' },
-        { label: 'RLHF Feedback', href: '/ngo/rlhf', icon: '🧠' },
         { label: 'Profile Settings', href: '/ngo/settings', icon: '⚙️' }
     ];
 
