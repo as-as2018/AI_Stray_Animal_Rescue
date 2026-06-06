@@ -151,9 +151,26 @@ Because Small Vision-Language Models (like the 1.8B Moondream2) struggle with st
 - **Reinforcement Learning from Human Feedback (RLHF):** The system features a self-improving data loop bridging human veterinary expertise with AI. 
   1. **Prediction:** The AI makes a tier prediction based on visual symptoms.
   2. **Automatic Data Collection:** If an NGO Admin corrects the AI's tier prediction on the dashboard, the backend automatically pairs the original visual description with the human's preferred tier and saves it to `rlhf_dataset.json`.
-  3. **Scheduled Re-Training:** A developer runs the `train_tier_model.py` script offline, which fine-tunes the BERT model using Supervised Fine-Tuning, penalizing it for wrong answers and rewarding it for matching the NGO Admin's feedback.
+  3. **Scheduled Re-Training:** `retrain_scheduler.py` runs offline (every Sunday at 2:00 AM via Windows Task Scheduler or Linux Cron). It uses **Majority Voting** to resolve conflicting corrections, backs up the old model, and fine-tunes BERT on the merged dataset.
   4. **Deployment:** The newly trained model is deployed, permanently fixing those edge cases without new code!
 - **Species Detection:** The NLP agent automatically classifies the animal species natively from Moondream's text, completely eliminating the need for a separate YOLO object-detection model.
+
+**RLHF Automation Scripts** (inside `backend/custome_model/`):
+
+| Script | Purpose |
+|---|---|
+| `retrain_scheduler.py` | Main scheduler — threshold check, backup, training, logging |
+| `setup_windows_scheduler.bat` | One-click Windows Task Scheduler registration |
+| `setup_cron.sh` | One-click Linux/Mac cron job registration |
+
+```bash
+# Check status without training
+python custome_model/retrain_scheduler.py --dry-run
+
+# Run retraining now manually
+python custome_model/retrain_scheduler.py
+```
+
 
 ### Urgency Score Formula
 ```

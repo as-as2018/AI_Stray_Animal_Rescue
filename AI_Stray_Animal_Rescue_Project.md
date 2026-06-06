@@ -140,8 +140,34 @@ In this platform, RLHF is the bridge between human veterinary expertise and arti
 
 1. **The Pre-Trained AI Makes a Prediction:** When a citizen uploads a photo, the Vision Model (Moondream2) looks at the image and generates a text description (e.g., *"A brown street dog with a severe open wound..."*). That text is passed to the custom BERT model, which makes an initial Urgency Tier prediction (e.g., `HIGH`).
 2. **The Human Reward Signal (Automatic Data Collection):** An NGO Admin sees this report on their dashboard, realizes the injury is actually life-threatening, and manually corrects the tier from `HIGH` to `CRITICAL`. The moment they save this change, the backend automatically pairs the AI's original visual description with the Admin's corrected tier and logs it into `rlhf_dataset.json`. This acts as the "Human Feedback" or reward signal.
-3. **The Reinforcement Learning (Scheduled Re-Training):** Once the dataset has grown with hundreds of corrections, a developer or an automated script runs the `train_tier_model.py` script. The BERT model undergoes **Supervised Fine-Tuning based on Human Preferences**. It mathematically adjusts its internal weights, getting "penalized" for its old wrong answers and "rewarded" for matching the human's preferred answers.
+3. **The Reinforcement Learning (Scheduled Re-Training):** Once the dataset has grown with hundreds of corrections, the automated `retrain_scheduler.py` script runs. The BERT model undergoes **Supervised Fine-Tuning based on Human Preferences**. It mathematically adjusts its internal weights, getting "penalized" for its old wrong answers and "rewarded" for matching the human's preferred answers. A **Majority Voting** algorithm resolves any conflicting corrections between different NGO Admins.
 4. **The Result (A Smarter AI):** Once the new weights are saved and loaded into the live server, the AI becomes smarter. The next time a citizen uploads a photo with similar symptoms, the AI will confidently predict `CRITICAL` right out of the gate. By having humans "in the loop", the model trains itself over time, aligning with professional medical standards without requiring new code.
+
+**RLHF Automation Scripts** (inside `custome_model/`):
+
+| File | Purpose |
+|---|---|
+| `retrain_scheduler.py` | Main Python scheduler — checks sample threshold, backs up old model, runs training, logs all activity |
+| `setup_windows_scheduler.bat` | Registers a Windows Task Scheduler job (runs every Sunday at 2:00 AM) |
+| `setup_cron.sh` | Adds a Linux/Mac cron job entry (runs every Sunday at 2:00 AM) |
+
+The scheduler includes safeguards:
+- **Threshold Gate:** Only retrains when ≥ 5 new human corrections exist (configurable).
+- **Model Backups:** Automatically backs up the current model before every retrain. Keeps the last 5 backups.
+- **Full Logging:** All activity is written to `retrain_log.txt` for auditing.
+
+```bash
+# Manual usage
+python retrain_scheduler.py --dry-run         # Check status without training
+python retrain_scheduler.py --min-samples 10  # Train only if 10+ corrections exist
+python retrain_scheduler.py                   # Run retraining now
+
+# Windows: Register the weekly task (run as Administrator)
+setup_windows_scheduler.bat
+
+# Linux/Mac: Register the cron job
+chmod +x setup_cron.sh && ./setup_cron.sh
+```
 
 ---
 
