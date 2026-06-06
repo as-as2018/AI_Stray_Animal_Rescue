@@ -9,10 +9,11 @@ An AI-powered, web-based stray animal rescue and triage system — college final
 - 📸 **Photo upload** with drag-and-drop interface
 - 📍 **GPS capture** from browser Geolocation API
 - 🤖 **AI triage** — Agentic Dual-Model Architecture (Moondream2 + DistilBERT NLI)
-- 🔢 **Urgency Score (0–100)** with 5 priority tiers
+- 🔢 **Urgency Score (0–100)** with 5 priority tiers and Reinforcement Learning from Human Feedback (RLHF)
 - 📧 **Email alert** to nearest NGO via SendGrid *(optional)*
-- ⚙️ **Admin dashboard** with charts, filterable reports table, and inline status updates
-- 🔒 **JWT authentication** with citizen / NGO admin / super admin roles
+- 🔒 **Role-based Authentication (JWT)** — Citizen, NGO Admin, and Super Admin roles
+- ⚙️ **KPI Dashboards** — Real-time analytics for Super Admins (Platform Metrics), NGOs (Triage Queues), and Citizens (Personal Report Tracking)
+- 🔍 **Universal List Controls** — Deep regex search (across all fields), debounced typing, tier/status filters, and click-to-sort tables across all portals
 
 ---
 
@@ -169,6 +170,14 @@ It is critical to distinguish between **AI Confidence** and **Medical Urgency**:
 
 ### Scalability (YOLO11-Seg Architecture)
 The system's architecture is built to seamlessly scale to **YOLO11-Seg (Instance Segmentation)**. When a Polygon-labeled dataset of 5,000+ medical images is acquired, the injury detection model can be swapped out to output pixel-perfect segmentation masks of wounds without changing the backend logic.
+
+---
+
+## 📊 Analytics & Reporting Architecture
+The platform ships with a robust analytics and list-management suite:
+- **Super Admin Dashboards:** View platform-wide KPIs including Registered Citizens, Active/Pending NGOs, and Total Rescue metrics.
+- **Deep Searching Engine:** Powered by MongoDB `$or` regex blocks, searching instantly scans across Report IDs, Animal Species, Injury Labels, Addresses, Citizen Names, and NGO Contacts.
+- **Optimized UI:** A unified React `ListControls` component provides 500ms debounced searching, pagination, multi-field filtering, and dynamic sort directions (`asc`/`desc`).
 
 ---
 

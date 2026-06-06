@@ -65,12 +65,11 @@ A synchronous Python inference pipeline that runs upon every report submission:
 - **Model B (Custom Tier Classifier with RLHF):** A custom-trained BERT model (`bert-tiny`) processes Moondream's text and directly classifies the urgency into 5 tiers (Healthy → Critical). This model utilizes an RLHF (Reinforcement Learning from Human Feedback) loop to continuously improve based on NGO Admin corrections.
 - **Urgency Score Engine:** A deterministic Python function combines injury class, AI confidence, time elapsed, and vulnerability factors to compute a priority score (0–100).
 
-### 4.3 NGO Admin Dashboard
-A web panel for registered rescue organizations featuring:
-- Prioritized, filterable reports table (sorted by urgency score)
-- Interactive map (Leaflet.js + OpenStreetMap) showing all active cases as GPS pins
-- Case lifecycle management (Pending → Assigned → In Progress → Resolved)
-- Monthly analytics charts (total reports, resolution rates, average response time)
+### 4.3 Role-Based Administration & Dashboards
+The platform utilizes a secure JWT-based Role Access System (Citizen, NGO Admin, Super Admin) with distinct portals:
+- **Super Admin Dashboard**: A high-level platform control center displaying live KPI metrics (Registered Citizens, Active NGOs, Pending NGO approvals) and a real-time Live Rescue Feed. It features deep regex-based searching capabilities allowing admins to manage all system entities.
+- **NGO Admin Dashboard**: A localized control panel for registered rescue organizations to manage their specific triage queue. It features prioritized, filterable report tables, interactive maps (Leaflet.js + OpenStreetMap), and case lifecycle management (Pending → Assigned → In Progress → Resolved).
+- **Citizen "My Reports" Dashboard**: A dedicated portal for ordinary users to track the real-time resolution status of the specific animals they reported, equipped with unified list controls (sort/filter/search).
 
 ---
 
@@ -232,8 +231,9 @@ Three primary collections:
 
 1. **Agentic Two-Model Pipeline** — By chaining a massive Vision-Language Model (Moondream2) with a lightning-fast custom NLP classifier (BERT), the system eliminates the need for expensive bounding box datasets and extracts human-like semantic meaning from images.
 2. **Reinforcement Learning from Human Feedback (RLHF)** — A self-improving data loop where every manual correction made by an NGO Admin on the dashboard is saved as a reward signal, allowing the custom BERT model to continuously learn and align with real-world veterinary triage standards.
-3. **Zero-Infrastructure Cost** — The entire platform — ML inference, database, image storage, email, and hosting — operates on free-tier cloud services, making it practically deployable by any college student or small NGO.
-4. **Graceful Fallback Design** — When custom fine-tuned models are unavailable, the system falls back to pretrained COCO YOLOv8 weights and a heuristic injury estimator, remaining operational for demos at any time.
+3. **Deep Searching & Universal List Engine** — A highly optimized backend search infrastructure using MongoDB `$or` regex blocks that allows users to instantly search across massive, heterogeneous datasets (Report IDs, Animal Species, Addresses, Contact Emails) all through a single, 500ms debounced UI control interface.
+4. **Zero-Infrastructure Cost** — The entire platform — ML inference, database, image storage, email, and hosting — operates on free-tier cloud services, making it practically deployable by any college student or small NGO.
+5. **Graceful Fallback Design** — When custom fine-tuned models are unavailable, the system falls back to pretrained COCO YOLOv8 weights and a heuristic injury estimator, remaining operational for demos at any time.
 
 ---
 
