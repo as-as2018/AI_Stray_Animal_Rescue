@@ -201,11 +201,54 @@ async def analyze_image(
     )
 
 
-@router.get("/")
-async def my_reports(skip: int = 0, limit: int = 10, current_user: User = Depends(get_current_user)):
+@router.get("/dashboard")
+async def user_dashboard(current_user: User = Depends(get_current_user)):
     query = Report.find(Report.user_id == str(current_user.id))
     total = await query.count()
-    reports = await query.sort(-Report.created_at).skip(skip).limit(limit).to_list()
+    pending = await query.find({"status": {"$in": ["pending", "assigned"]}}).count()
+    in_progress = await query.find(Report.status == "in_progress").count()
+    resolved = await query.find(Report.status == "resolved").count()
+    
+    return {
+        "total": total,
+        "pending": pending,
+        "in_progress": in_progress,
+        "resolved": resolved
+    }
+
+@router.get("/")
+async def my_reports(
+    status: Optional[str] = None,
+    tier: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    skip: int = 0, 
+    limit: int = 10, 
+    current_user: User = Depends(get_current_user)
+):
+    query = Report.find(Report.user_id == str(current_user.id))
+    
+    if status:
+        query = query.find(Report.status == status)
+    if tier:
+        query = query.find(Report.urgency_tier == tier)
+    if search:
+        query = query.find({"$or": [
+            {"report_id": {"$regex": search, "$options": "i"}},
+            {"species": {"$regex": search, "$options": "i"}},
+            {"injury_label": {"$regex": search, "$options": "i"}},
+            {"address": {"$regex": search, "$options": "i"}},
+            {"assigned_ngo_name": {"$regex": search, "$options": "i"}}
+        ]})
+        
+    total = await query.count()
+    sort_prefix = "-" if sort_order == "desc" else "+"
+    
+    # Map created_at if used, else urgency_score
+    sort_field = sort_prefix + sort_by
+    reports = await query.sort(sort_field).skip(skip).limit(limit).to_list()
+    
     return {
         "total": total,
         "items": [_to_list_item(r) for r in reports]

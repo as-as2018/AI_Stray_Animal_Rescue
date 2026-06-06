@@ -33,7 +33,14 @@ async def list_all_reports(
     if tier:
         query = query.find(Report.urgency_tier == tier)
     if search:
-        query = query.find({"$or": [{"report_id": {"$regex": search, "$options": "i"}}, {"species": {"$regex": search, "$options": "i"}}]})
+        query = query.find({"$or": [
+            {"report_id": {"$regex": search, "$options": "i"}},
+            {"species": {"$regex": search, "$options": "i"}},
+            {"injury_label": {"$regex": search, "$options": "i"}},
+            {"address": {"$regex": search, "$options": "i"}},
+            {"reporter_name": {"$regex": search, "$options": "i"}},
+            {"assigned_ngo_name": {"$regex": search, "$options": "i"}}
+        ]})
     if ngo_id:
         query = query.find(Report.assigned_ngo_id == ngo_id)
         
@@ -124,6 +131,10 @@ async def dashboard_stats(_: User = Depends(require_ngo_or_admin)):
     resolved = await Report.find(Report.status == "resolved").count()
     critical = await Report.find(Report.urgency_tier == "CRITICAL").count()
     high = await Report.find(Report.urgency_tier == "HIGH").count()
+    
+    total_users = await User.find(User.role == 2).count()
+    total_ngos = await NGO.count()
+    active_ngos = await NGO.find(NGO.is_active == True).count()
 
     recent = await Report.find().sort(-Report.created_at).limit(5).to_list()
     recent_data = [
@@ -147,6 +158,9 @@ async def dashboard_stats(_: User = Depends(require_ngo_or_admin)):
         "resolved": resolved,
         "critical": critical,
         "high": high,
+        "total_users": total_users,
+        "total_ngos": total_ngos,
+        "active_ngos": active_ngos,
         "recent_reports": recent_data,
     }
 
@@ -173,7 +187,8 @@ async def list_ngos(
         query = query.find({"$or": [
             {"name": {"$regex": search, "$options": "i"}},
             {"city": {"$regex": search, "$options": "i"}},
-            {"contact_email": {"$regex": search, "$options": "i"}}
+            {"contact_email": {"$regex": search, "$options": "i"}},
+            {"contact_phone": {"$regex": search, "$options": "i"}}
         ]})
         
     total = await query.count()
@@ -238,7 +253,11 @@ async def list_users(
 ):
     query = User.find()
     if search:
-        query = query.find({"$or": [{"name": {"$regex": search, "$options": "i"}}, {"email": {"$regex": search, "$options": "i"}}]})
+        query = query.find({"$or": [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+            {"phone": {"$regex": search, "$options": "i"}}
+        ]})
         
     total = await query.count()
     users = await query.skip(skip).limit(limit).to_list()

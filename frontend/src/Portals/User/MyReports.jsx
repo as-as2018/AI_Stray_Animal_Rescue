@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import API from '../../services/api';
 import { UrgencyBadge, StatusBadge } from '../../Shared/Components/Badges';
+import ListControls from '../../Shared/Components/ListControls';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 
@@ -9,21 +10,40 @@ export default function MyReports() {
     const [reports, setReports] = useState([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [dashboard, setDashboard] = useState(null);
     
-    // Pagination
+    // Pagination & Search & Filter & Sort
     const [page, setPage] = useState(0);
     const limit = 10;
+    const [statusFilter, setStatusFilter] = useState('');
+    const [tierFilter, setTierFilter] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [sortBy, setSortBy] = useState('created_at');
+    const [sortOrder, setSortOrder] = useState('desc');
 
     useEffect(() => {
         setLoading(true);
-        API.get('/reports/', { params: { skip: page * limit, limit } })
-            .then(({ data }) => {
-                setReports(data.items || data);
-                setTotal(data.total || 0);
-            })
-            .catch(() => toast.error('Failed to load reports'))
-            .finally(() => setLoading(false));
-    }, [page]);
+        // Fetch dashboard stats once or when reports update
+        API.get('/reports/dashboard').then(({ data }) => setDashboard(data)).catch(() => {});
+        
+        API.get('/reports/', { 
+            params: { 
+                skip: page * limit, 
+                limit,
+                search: debouncedSearch || undefined,
+                status: statusFilter || undefined,
+                tier: tierFilter || undefined,
+                sort_by: sortBy,
+                sort_order: sortOrder
+            } 
+        })
+        .then(({ data }) => {
+            setReports(data.items || data);
+            setTotal(data.total || 0);
+        })
+        .catch(() => toast.error('Failed to load reports'))
+        .finally(() => setLoading(false));
+    }, [page, debouncedSearch, statusFilter, tierFilter, sortBy, sortOrder]);
 
     const totalPages = Math.ceil(total / limit);
 
@@ -39,10 +59,45 @@ export default function MyReports() {
             <div className="flex-between mb-6">
                 <div>
                     <h1 className="page-title">My Reports</h1>
-                    <p className="page-subtitle">{total} report{total !== 1 ? 's' : ''} submitted</p>
+                    <p className="page-subtitle">Track your submitted rescue cases</p>
                 </div>
                 <Link to="/user/report" className="btn btn-primary">+ New Report</Link>
             </div>
+
+            {/* KPI Dashboard */}
+            {dashboard && (
+                <div style={{ display: 'flex', gap: 16, marginBottom: 32, flexWrap: 'wrap' }}>
+                    <div className="card" style={{ flex: 1, minWidth: 150, textAlign: 'center', padding: '16px' }}>
+                        <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-1)' }}>{dashboard.total}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Total Submitted</div>
+                    </div>
+                    <div className="card" style={{ flex: 1, minWidth: 150, textAlign: 'center', padding: '16px' }}>
+                        <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--critical)' }}>{dashboard.pending}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Pending Assignment</div>
+                    </div>
+                    <div className="card" style={{ flex: 1, minWidth: 150, textAlign: 'center', padding: '16px' }}>
+                        <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--warning)' }}>{dashboard.in_progress}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-2)' }}>In Progress</div>
+                    </div>
+                    <div className="card" style={{ flex: 1, minWidth: 150, textAlign: 'center', padding: '16px' }}>
+                        <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--low)' }}>{dashboard.resolved}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Resolved</div>
+                    </div>
+                </div>
+            )}
+            
+            <ListControls 
+                searchPlaceholder="Search your reports..."
+                onSearchChange={(val) => { setDebouncedSearch(val); setPage(0); }}
+                statusFilter={statusFilter}
+                onStatusChange={(val) => { setStatusFilter(val); setPage(0); }}
+                tierFilter={tierFilter}
+                onTierChange={(val) => { setTierFilter(val); setPage(0); }}
+                sortBy={sortBy}
+                onSortByChange={setSortBy}
+                sortOrder={sortOrder}
+                onSortOrderChange={setSortOrder}
+            />
 
             {total === 0 && !loading ? (
                 <div className="card text-center" style={{ padding: 60 }}>

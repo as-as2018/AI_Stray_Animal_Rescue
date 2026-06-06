@@ -1,23 +1,18 @@
 import { useState, useEffect } from 'react';
 import API from '../../services/api';
 import toast from 'react-hot-toast';
+import ListControls from '../../Shared/Components/ListControls';
 
 export default function AdminUsers() {
     const [users, setUsers] = useState([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     
-    // Pagination & Search
     const [page, setPage] = useState(0);
     const limit = 10;
-    const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
 
-    // Debounce search
-    useEffect(() => {
-        const timer = setTimeout(() => { setDebouncedSearch(search); setPage(0); }, 500);
-        return () => clearTimeout(timer);
-    }, [search]);
+    // Fetch users
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -52,16 +47,13 @@ export default function AdminUsers() {
                 </div>
             </div>
 
-            <div className="flex-between mb-4">
-                <input
-                    type="text"
-                    className="input"
-                    placeholder="Search by name or email..."
-                    style={{ maxWidth: 300 }}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                />
-            </div>
+            <ListControls 
+                searchPlaceholder="Search Users by name, email, or phone..."
+                onSearchChange={(val) => { setDebouncedSearch(val); setPage(0); }}
+                hideStatus={true}
+                hideTier={true}
+                hideSort={true}
+            />
 
             <div className="table-wrap">
                 <table>

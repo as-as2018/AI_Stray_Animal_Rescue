@@ -52,15 +52,14 @@ async def update_ngo_profile(
 
 @router.get("/dashboard")
 async def get_ngo_dashboard(ngo: NGO = Depends(get_active_ngo)):
-    query = Report.find(Report.assigned_ngo_id == str(ngo.id))
-    total = await query.count()
-    pending = await query.find(Report.status == "pending").count()
-    assigned = await query.find(Report.status == "assigned").count()
-    in_progress = await query.find(Report.status == "in_progress").count()
-    resolved = await query.find(Report.status == "resolved").count()
+    total = await Report.find(Report.assigned_ngo_id == str(ngo.id)).count()
+    pending = await Report.find(Report.assigned_ngo_id == str(ngo.id), Report.status == "pending").count()
+    assigned = await Report.find(Report.assigned_ngo_id == str(ngo.id), Report.status == "assigned").count()
+    in_progress = await Report.find(Report.assigned_ngo_id == str(ngo.id), Report.status == "in_progress").count()
+    resolved = await Report.find(Report.assigned_ngo_id == str(ngo.id), Report.status == "resolved").count()
     
-    critical = await query.find(Report.urgency_tier == "CRITICAL").count()
-    high = await query.find(Report.urgency_tier == "HIGH").count()
+    critical = await Report.find(Report.assigned_ngo_id == str(ngo.id), Report.urgency_tier == "CRITICAL").count()
+    high = await Report.find(Report.assigned_ngo_id == str(ngo.id), Report.urgency_tier == "HIGH").count()
 
     return {
         "total": total,
@@ -92,7 +91,13 @@ async def list_ngo_reports(
     if tier:
         query = query.find(Report.urgency_tier == tier)
     if search:
-        query = query.find({"$or": [{"report_id": {"$regex": search, "$options": "i"}}, {"species": {"$regex": search, "$options": "i"}}]})
+        query = query.find({"$or": [
+            {"report_id": {"$regex": search, "$options": "i"}},
+            {"species": {"$regex": search, "$options": "i"}},
+            {"injury_label": {"$regex": search, "$options": "i"}},
+            {"address": {"$regex": search, "$options": "i"}},
+            {"reporter_name": {"$regex": search, "$options": "i"}}
+        ]})
         
     total = await query.count()
     sort_prefix = "-" if sort_order == "desc" else "+"

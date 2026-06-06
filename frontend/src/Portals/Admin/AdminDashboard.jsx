@@ -4,50 +4,23 @@ import API from '../../services/api';
 import { UrgencyBadge, StatusBadge } from '../../Shared/Components/Badges';
 import toast from 'react-hot-toast';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { Link } from 'react-router-dom';
 
 const TIER_COLORS = { CRITICAL: '#ef4444', HIGH: '#f59e0b', MEDIUM: '#3b82f6', LOW: '#22c55e', MONITOR: '#6b7280' };
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState(null);
-    const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState('');
-    const [tierFilter, setTierFilter] = useState('');
-    const [updating, setUpdating] = useState(null);
 
     const fetchData = async () => {
         try {
-            const [statsRes, reportsRes] = await Promise.all([
-                API.get('/admin/dashboard'),
-                API.get('/admin/reports', { params: { status: statusFilter || undefined, tier: tierFilter || undefined } }),
-            ]);
+            const statsRes = await API.get('/admin/dashboard');
             setStats(statsRes.data);
-            setReports(reportsRes.data.items || reportsRes.data);
         } catch { toast.error('Failed to load dashboard'); }
         finally { setLoading(false); }
     };
 
-    useEffect(() => { fetchData(); }, [statusFilter, tierFilter]);
-
-    const updateStatus = async (reportId, newStatus) => {
-        setUpdating(reportId);
-        try {
-            await API.patch(`/admin/reports/${reportId}`, { status: newStatus });
-            toast.success(`Status updated to "${newStatus}"`);
-            fetchData();
-        } catch { toast.error('Update failed'); }
-        finally { setUpdating(null); }
-    };
-
-    const updateTier = async (reportId, newTier) => {
-        setUpdating(reportId);
-        try {
-            await API.patch(`/admin/reports/${reportId}/tier`, { tier: newTier });
-            toast.success(`Urgency Tier updated to "${newTier}"! RLHF reward logged.`);
-            fetchData();
-        } catch { toast.error('Update failed'); }
-        finally { setUpdating(null); }
-    };
+    useEffect(() => { fetchData(); }, []);
 
     if (loading) return (
         <div className="page text-center" style={{ paddingTop: 80 }}>
@@ -71,22 +44,64 @@ export default function AdminDashboard() {
 
     return (
         <div className="page">
-            <h1 className="page-title">⚙️ NGO Dashboard</h1>
-            <p className="page-subtitle">Manage rescue reports and track outcomes</p>
+            <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 32 }}>👑</span> Super Admin Dashboard
+            </h1>
+            <p className="page-subtitle">Platform-wide overview of rescues, NGOs, and citizens</p>
 
-            {/* Stat cards */}
+            {/* Platform Metrics */}
+            {stats && (
+                <div style={{ display: 'flex', gap: 16, marginBottom: 32, flexWrap: 'wrap' }}>
+                    <div className="card" style={{ flex: 1, minWidth: 200, padding: 24, background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(99, 102, 241, 0.1) 100%)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(99, 102, 241, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>👥</div>
+                            <div>
+                                <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Registered Citizens</div>
+                                <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)' }}>{stats.total_users}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="card" style={{ flex: 1, minWidth: 200, padding: 24, background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(34, 197, 94, 0.1) 100%)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(34, 197, 94, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🏥</div>
+                            <div>
+                                <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Active NGOs</div>
+                                <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)' }}>{stats.active_ngos}</div>
+                                {stats.total_ngos - stats.active_ngos > 0 && (
+                                    <div style={{ fontSize: 12, color: 'var(--warning)', marginTop: 4, fontWeight: 500 }}>
+                                        {stats.total_ngos - stats.active_ngos} pending approval
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="card" style={{ flex: 1, minWidth: 200, padding: 24, background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(245, 158, 11, 0.1) 100%)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(245, 158, 11, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🚨</div>
+                            <div>
+                                <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Rescues</div>
+                                <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)' }}>{stats.total}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Rescue Report Metrics */}
             {stats && (
                 <div className="grid-4 mb-8">
                     {[
-                        { label: 'Total Reports', value: stats.total, icon: '📋', color: '#6366f1' },
-                        { label: '🔴 Critical', value: stats.critical, icon: '🚨', color: '#ef4444' },
-                        { label: 'Pending', value: stats.pending, icon: '⏳', color: '#f59e0b' },
-                        { label: 'Resolved', value: stats.resolved, icon: '✅', color: '#22c55e' },
+                        { label: 'Pending Assignment', value: stats.pending, icon: '⏳', color: '#f59e0b' },
+                        { label: 'In Progress', value: stats.in_progress, icon: '🚑', color: '#3b82f6' },
+                        { label: 'Resolved Successfully', value: stats.resolved, icon: '✅', color: '#22c55e' },
+                        { label: 'Critical Emergencies', value: stats.critical, icon: '🔴', color: '#ef4444' },
                     ].map((s) => (
-                        <div className="stat-card" key={s.label}>
-                            <div className="stat-icon">{s.icon}</div>
-                            <div className="stat-value" style={{ color: s.color }}>{s.value}</div>
-                            <div className="stat-label">{s.label}</div>
+                        <div className="stat-card" key={s.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+                            <div className="stat-icon" style={{ background: `${s.color}15` }}>{s.icon}</div>
+                            <div className="stat-value" style={{ color: s.color, fontSize: 32, fontWeight: 800 }}>{s.value}</div>
+                            <div className="stat-label" style={{ fontWeight: 600 }}>{s.label}</div>
                         </div>
                     ))}
                 </div>
@@ -94,57 +109,94 @@ export default function AdminDashboard() {
 
             {/* Charts */}
             {stats && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginBottom: 32 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 24, marginBottom: 32 }}>
                     <div className="card">
-                        <h3 style={{ marginBottom: 16, fontWeight: 600, fontSize: 15 }}>Cases by Status</h3>
-                        <ResponsiveContainer width="100%" height={180}>
-                            <BarChart data={barData}>
-                                <XAxis dataKey="name" tick={{ fill: '#a0a0b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fill: '#a0a0b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                                <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }} />
-                                <Bar dataKey="value" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                        <h3 style={{ marginBottom: 24, fontWeight: 700, fontSize: 18 }}>Rescue Pipeline</h3>
+                        <ResponsiveContainer width="100%" height={240}>
+                            <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <XAxis dataKey="name" tick={{ fill: 'var(--text-2)', fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fill: 'var(--text-3)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                                <Tooltip 
+                                    contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 10px 15px rgba(0,0,0,0.1)' }} 
+                                    cursor={{ fill: 'var(--bg-2)' }}
+                                />
+                                <Bar dataKey="value" fill="var(--primary)" radius={[8, 8, 0, 0]} barSize={40} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
 
                     <div className="card">
-                        <h3 style={{ marginBottom: 16, fontWeight: 600, fontSize: 15 }}>Urgency Distribution</h3>
-                        <ResponsiveContainer width="100%" height={180}>
-                            <PieChart>
-                                <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={75}
-                                    dataKey="value" paddingAngle={3}>
-                                    {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                                </Pie>
-                                <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-                            {pieData.map((d) => (
-                                <span key={d.name} style={{ fontSize: 12, color: d.color }}>● {d.name} ({d.value})</span>
-                            ))}
+                        <h3 style={{ marginBottom: 24, fontWeight: 700, fontSize: 18 }}>AI Urgency Distribution</h3>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <ResponsiveContainer width="60%" height={240}>
+                                <PieChart>
+                                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" paddingAngle={4} stroke="none">
+                                        {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                                    </Pie>
+                                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+                                {pieData.map((d) => (
+                                    <div key={d.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <div style={{ width: 12, height: 12, borderRadius: '50%', background: d.color }}></div>
+                                            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-1)' }}>{d.name}</span>
+                                        </div>
+                                        <span style={{ fontSize: 16, fontWeight: 700, color: d.color }}>{d.value}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Recent Reports List (Lightweight) */}
+            {/* Recent Reports List */}
             <div className="card">
-                <h3 style={{ marginBottom: 16, fontWeight: 600, fontSize: 15 }}>Recent Reports</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <h3 style={{ fontWeight: 700, fontSize: 18, margin: 0 }}>Live Rescue Feed</h3>
+                    <Link to="/admin/reports" className="btn btn-outline btn-sm">View All</Link>
+                </div>
+                
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {stats?.recent_reports?.length === 0 ? (
-                        <p className="text-muted text-sm">No recent reports.</p>
-                    ) : stats?.recent_reports?.map(r => (
-                        <div key={r.report_id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'var(--bg-2)', borderRadius: 8 }}>
-                            <img src={r.thumbnail_url || r.image_url} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 14, fontWeight: 600 }}>{r.species || 'Unknown Species'}</div>
-                                <div style={{ fontSize: 12, color: 'var(--text-2)' }}>ID: {r.report_id}</div>
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <UrgencyBadge tier={r.urgency_tier} />
-                                <div style={{ marginTop: 4 }}><StatusBadge status={r.status} /></div>
-                            </div>
+                        <div style={{ padding: 40, textAlign: 'center', background: 'var(--bg-2)', borderRadius: 12 }}>
+                            <div style={{ fontSize: 32, marginBottom: 12 }}>🐾</div>
+                            <p className="text-muted">No rescue reports yet.</p>
                         </div>
+                    ) : stats?.recent_reports?.map(r => (
+                        <Link 
+                            to={`/admin/reports/${r.report_id}`} 
+                            key={r.report_id} 
+                            style={{ 
+                                display: 'flex', alignItems: 'center', gap: 16, padding: 16, 
+                                background: 'var(--bg-2)', borderRadius: 12, textDecoration: 'none', color: 'inherit',
+                                transition: 'all 0.2s ease', border: '1px solid transparent'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 10px 15px rgba(0,0,0,0.1)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.boxShadow = 'none'; }}
+                        >
+                            <img src={r.thumbnail_url || r.image_url} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover' }} />
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', marginBottom: 4 }}>{r.species || 'Unknown Animal'}</div>
+                                <div style={{ fontSize: 13, color: 'var(--text-3)', fontFamily: 'monospace' }}>{r.report_id}</div>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                {r.address ? (
+                                    <div style={{ fontSize: 13, color: 'var(--text-2)' }}>📍 {r.address}</div>
+                                ) : (
+                                    <div style={{ fontSize: 13, color: 'var(--text-3)', fontStyle: 'italic' }}>GPS coordinates only</div>
+                                )}
+                                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
+                                    {new Date(r.created_at).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                            </div>
+                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                                <UrgencyBadge tier={r.urgency_tier} />
+                                <StatusBadge status={r.status} />
+                            </div>
+                        </Link>
                     ))}
                 </div>
             </div>

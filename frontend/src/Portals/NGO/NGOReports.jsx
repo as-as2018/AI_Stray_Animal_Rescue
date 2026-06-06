@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../../services/api';
 import { UrgencyBadge, StatusBadge } from '../../Shared/Components/Badges';
+import ListControls from '../../Shared/Components/ListControls';
 import toast from 'react-hot-toast';
 
 export default function NGOReports() {
@@ -11,17 +12,14 @@ export default function NGOReports() {
     const [statusFilter, setStatusFilter] = useState('');
     const [tierFilter, setTierFilter] = useState('');
     const [updating, setUpdating] = useState(null);
-    const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    
+    const [sortBy, setSortBy] = useState('urgency_score');
+    const [sortOrder, setSortOrder] = useState('desc');
     
     const [page, setPage] = useState(0);
     const limit = 10;
-
-    useEffect(() => {
-        const timer = setTimeout(() => { setDebouncedSearch(search); setPage(0); }, 500);
-        return () => clearTimeout(timer);
-    }, [search]);
-
+    
     const [errorMsg, setErrorMsg] = useState(null);
 
     const fetchReports = async () => {
@@ -33,6 +31,8 @@ export default function NGOReports() {
                     status: statusFilter || undefined, 
                     tier: tierFilter || undefined,
                     search: debouncedSearch || undefined,
+                    sort_by: sortBy,
+                    sort_order: sortOrder,
                     skip: page * limit,
                     limit
                 } 
@@ -47,7 +47,7 @@ export default function NGOReports() {
         finally { setLoading(false); }
     };
 
-    useEffect(() => { fetchReports(); }, [statusFilter, tierFilter, page, debouncedSearch]);
+    useEffect(() => { fetchReports(); }, [statusFilter, tierFilter, page, debouncedSearch, sortBy, sortOrder]);
 
     const updateStatus = async (reportId, newStatus) => {
         setUpdating(reportId);
@@ -76,26 +76,18 @@ export default function NGOReports() {
             <h1 className="page-title">🚑 Assigned Rescues</h1>
             <p className="page-subtitle">Manage cases assigned to your NGO and provide RLHF Feedback</p>
 
-            <div className="flex-between mb-4" style={{ flexWrap: 'wrap' }}>
-                <input
-                    type="text"
-                    className="input"
-                    placeholder="Search ID or Species..."
-                    style={{ maxWidth: 260 }}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                />
-                <div className="flex-gap">
-                    <select className="input" style={{ width: 'auto' }} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}>
-                        <option value="">All Statuses</option>
-                        {['pending', 'assigned', 'in_progress', 'resolved'].map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <select className="input" style={{ width: 'auto' }} value={tierFilter} onChange={(e) => { setTierFilter(e.target.value); setPage(0); }}>
-                        <option value="">All Tiers</option>
-                        {['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'MONITOR'].map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                </div>
-            </div>
+            <ListControls 
+                searchPlaceholder="Search ID, Species, Address..."
+                onSearchChange={(val) => { setDebouncedSearch(val); setPage(0); }}
+                statusFilter={statusFilter}
+                onStatusChange={(val) => { setStatusFilter(val); setPage(0); }}
+                tierFilter={tierFilter}
+                onTierChange={(val) => { setTierFilter(val); setPage(0); }}
+                sortBy={sortBy}
+                onSortByChange={setSortBy}
+                sortOrder={sortOrder}
+                onSortOrderChange={setSortOrder}
+            />
 
             <div className="table-wrap">
                 {errorMsg ? (

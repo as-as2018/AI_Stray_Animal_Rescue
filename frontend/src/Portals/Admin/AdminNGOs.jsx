@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import API from '../../services/api';
 import toast from 'react-hot-toast';
-
+import ListControls from '../../Shared/Components/ListControls';
 import { Link } from 'react-router-dom';
 
 export default function AdminNGOs() {
@@ -12,7 +12,6 @@ export default function AdminNGOs() {
     // Pagination, Search, Filter & Sort
     const [page, setPage] = useState(0);
     const limit = 10;
-    const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [sortBy, setSortBy] = useState('created_at');
@@ -22,11 +21,7 @@ export default function AdminNGOs() {
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({ name: '', city: '', contact_email: '', latitude: '', longitude: '' });
 
-    // Debounce search
-    useEffect(() => {
-        const timer = setTimeout(() => { setDebouncedSearch(search); setPage(0); }, 500);
-        return () => clearTimeout(timer);
-    }, [search]);
+    // Form
 
     const fetchNGOs = async () => {
         setLoading(true);
@@ -59,8 +54,8 @@ export default function AdminNGOs() {
     };
 
     const SortIcon = ({ field }) => {
-        if (sortBy !== field) return <span style={{ opacity: 0.3, marginLeft: 4 }}>↕</span>;
-        return <span style={{ marginLeft: 4 }}>{sortOrder === 'asc' ? '↑' : '↓'}</span>;
+        if (sortBy !== field) return null;
+        return <span style={{ marginLeft: 4, color: 'var(--primary)' }}>{sortOrder === 'asc' ? '⬆️' : '⬇️'}</span>;
     };
 
     const toggleStatus = async (id) => {
@@ -104,26 +99,27 @@ export default function AdminNGOs() {
                 </div>
             </div>
 
-            <div className="flex-between mb-4">
-                <input
-                    type="text"
-                    className="input"
-                    placeholder="Search NGOs by name, city, or email..."
-                    style={{ maxWidth: 300 }}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                />
-                <select 
-                    className="input" 
-                    style={{ width: 'auto' }}
-                    value={statusFilter}
-                    onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-                >
-                    <option value="all">All Statuses</option>
-                    <option value="active">Approved</option>
-                    <option value="inactive">Pending Approval</option>
-                </select>
-            </div>
+            <ListControls 
+                searchPlaceholder="Search NGOs by name, city, email..."
+                onSearchChange={(val) => { setDebouncedSearch(val); setPage(0); }}
+                statusFilter={statusFilter}
+                onStatusChange={(val) => { setStatusFilter(val); setPage(0); }}
+                statusOptions={[
+                    { label: 'Approved', value: 'active' },
+                    { label: 'Pending Approval', value: 'inactive' }
+                ]}
+                hideTier={true}
+                sortBy={sortBy}
+                onSortByChange={setSortBy}
+                sortOrder={sortOrder}
+                onSortOrderChange={setSortOrder}
+                sortOptions={[
+                    { label: 'Created Date', value: 'created_at' },
+                    { label: 'Name', value: 'name' },
+                    { label: 'City', value: 'city' },
+                    { label: 'Rescues', value: 'total_rescues' },
+                ]}
+            />
 
             <div className="table-wrap">
                 <table>
