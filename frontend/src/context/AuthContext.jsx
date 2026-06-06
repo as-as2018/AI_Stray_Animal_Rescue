@@ -8,32 +8,42 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        const stored = localStorage.getItem('user');
-        if (token && stored) {
-            const parsedUser = JSON.parse(stored);
-            parsedUser.role = Number(parsedUser.role);
-            setUser(parsedUser);
-        }
-        setLoading(false);
+        const initAuth = async () => {
+            const token = localStorage.getItem('token');
+            if (token) {
+                try {
+                    const { data } = await API.get('/auth/me');
+                    data.role = Number(data.role);
+                    setUser(data);
+                    localStorage.setItem('user', JSON.stringify(data));
+                } catch (err) {
+                    console.error('Session expired', err);
+                    logout();
+                }
+            }
+            setLoading(false);
+        };
+        initAuth();
     }, []);
+
+    const fetchMe = async () => {
+        const { data } = await API.get('/auth/me');
+        data.role = Number(data.role);
+        setUser(data);
+        localStorage.setItem('user', JSON.stringify(data));
+        return data;
+    };
 
     const login = async (email, password) => {
         const { data } = await API.post('/auth/login', { email, password });
         localStorage.setItem('token', data.access_token);
-        const u = { id: data.user_id, name: data.name, role: Number(data.role) };
-        localStorage.setItem('user', JSON.stringify(u));
-        setUser(u);
-        return u;
+        return await fetchMe();
     };
 
     const register = async (name, email, password, phone, is_ngo = false) => {
         const { data } = await API.post('/auth/register', { name, email, password, phone, is_ngo });
         localStorage.setItem('token', data.access_token);
-        const u = { id: data.user_id, name: data.name, role: Number(data.role) };
-        localStorage.setItem('user', JSON.stringify(u));
-        setUser(u);
-        return u;
+        return await fetchMe();
     };
 
     const logout = () => {

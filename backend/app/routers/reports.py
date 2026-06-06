@@ -231,6 +231,7 @@ def _to_list_item(r: Report) -> ReportListItem:
         image_url=r.image_url, thumbnail_url=r.thumbnail_url, latitude=r.latitude,
         longitude=r.longitude, address=r.address, reporter_name=r.reporter_name,
         created_at=r.created_at, is_juvenile=r.is_juvenile,
+        assigned_ngo_name=r.assigned_ngo_name,
     )
 
 

@@ -25,10 +25,16 @@ class TokenResponse(BaseModel):
     role: str
 
 
+class UserUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+
+
 class UserResponse(BaseModel):
     id: str
     name: str
     email: str
+    phone: Optional[str] = None
     role: str
     reports_submitted: int
     created_at: datetime
@@ -73,6 +79,7 @@ class ReportListItem(BaseModel):
     reporter_name: str
     created_at: datetime
     is_juvenile: bool
+    assigned_ngo_name: Optional[str] = None
 
 
 class ReportDetail(ReportListItem):

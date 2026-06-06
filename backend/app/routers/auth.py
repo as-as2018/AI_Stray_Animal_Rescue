@@ -55,6 +55,31 @@ async def me(current_user: User = Depends(get_current_user)):
         id=str(current_user.id),
         name=current_user.name,
         email=current_user.email,
+        phone=current_user.phone,
+        role=current_user.role,
+        reports_submitted=current_user.reports_submitted,
+        created_at=current_user.created_at,
+    )
+
+
+from app.schemas.schemas import UserUpdateRequest
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(data: UserUpdateRequest, current_user: User = Depends(get_current_user)):
+    update_data = {}
+    if data.name is not None:
+        update_data["name"] = data.name
+    if data.phone is not None:
+        update_data["phone"] = data.phone
+        
+    if update_data:
+        await current_user.set(update_data)
+        
+    return UserResponse(
+        id=str(current_user.id),
+        name=current_user.name,
+        email=current_user.email,
+        phone=current_user.phone,
         role=current_user.role,
         reports_submitted=current_user.reports_submitted,
         created_at=current_user.created_at,

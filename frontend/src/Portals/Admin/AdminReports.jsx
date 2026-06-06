@@ -99,7 +99,7 @@ export default function AdminReports() {
                             <th>Report ID</th>
                             <th>Species / Condition</th>
                             <th>Priority</th>
-                            <th>Status</th>
+                            <th>Status / NGO</th>
                             <th>Location</th>
                             <th>Date</th>
                             <th>Action</th>
@@ -126,7 +126,14 @@ export default function AdminReports() {
                                     <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 700 }}>{r.urgency_score}/100</div>
                                 </td>
                                 <td><UrgencyBadge tier={r.urgency_tier} /></td>
-                                <td><StatusBadge status={r.status} /></td>
+                                <td>
+                                    <StatusBadge status={r.status} />
+                                    {r.assigned_ngo_name && (
+                                        <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>
+                                            {r.assigned_ngo_name}
+                                        </div>
+                                    )}
+                                </td>
                                 <td style={{ fontSize: 13, color: 'var(--text-2)', maxWidth: 140 }}>
                                     {r.address ? r.address.slice(0, 40) + (r.address.length > 40 ? '…' : '') : (
                                         r.latitude ? `${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}` : '—'
